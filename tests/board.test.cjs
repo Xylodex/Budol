@@ -157,6 +157,33 @@ test('discovery recovers from a closed source tab and can switch between connect
   assert.match(document.querySelector('.candidate').textContent, /Product 5/);
 });
 
+test('an unresponsive Shopee tab does not block products from another tab', async t => {
+  const { document, dom, chrome } = await setup(t);
+  const originalTimeout = dom.window.setTimeout.bind(dom.window);
+  dom.window.setTimeout = (callback, delay) => originalTimeout(callback, delay === 5000 ? 0 : delay);
+  chrome.tabs.query = async () => [{ id: 1 }, { id: 2 }];
+  chrome.tabs.sendMessage = id => id === 1 ? new Promise(() => {}) : Promise.resolve({ products: [{ ...saved(2, 'Responsive tab', 10000), discount: 80 }] });
+  document.getElementById('refresh').click(); await wait(20);
+  assert.match(document.querySelector('.candidate').textContent, /Responsive tab/);
+  assert.equal(document.getElementById('refresh').disabled, false);
+});
+
+test('an older source refresh cannot overwrite the latest board or leave a working label', async t => {
+  const { document, dom, chrome } = await setup(t);
+  chrome.tabs.query = async () => [{ id: 1 }, { id: 2 }];
+  chrome.tabs.sendMessage = async id => ({ products: [{ ...saved(id, `Tab ${id}`, 10000), discount: 80 }] });
+  let finish; let calls = 0;
+  chrome.runtime.sendMessage = async () => {
+    if (++calls === 1) return new Promise(resolve => { finish = () => resolve({ ok: true, board: { version: 1, products: [saved(1, 'Older board', 10000)] } }); });
+    return { ok: true, board: { version: 1, products: [saved(2, 'Latest board', 20000)] } };
+  };
+  document.getElementById('refresh').click(); await wait();
+  const source = document.getElementById('source-tab'); source.value = '2'; source.dispatchEvent(new dom.window.Event('change')); await wait();
+  finish(); await wait();
+  assert.match(document.getElementById('saved').textContent, /Latest board/); assert.doesNotMatch(document.getElementById('saved').textContent, /Older board/);
+  assert.equal(document.getElementById('refresh').textContent, 'Refresh products'); assert.equal(document.getElementById('refresh').disabled, false);
+});
+
 test('switching products clears product-specific shipping, quantity and voucher values', async t => {
   const { document, dom } = await setup(t, [saved(1, 'First', 10000), saved(2, 'Second', 20000)]);
   const buttons = [...document.querySelectorAll('#saved .primary')];

@@ -440,7 +440,14 @@
     try {
       const tabs = await chrome.tabs.query({ currentWindow: true });
       const results = await Promise.allSettled(tabs.map(async tab => {
-        const result = await chrome.tabs.sendMessage(tab.id, { type: 'BUDOL_GET_PRODUCTS' });
+        let timer;
+        let result;
+        try {
+          result = await Promise.race([
+            chrome.tabs.sendMessage(tab.id, { type: 'BUDOL_GET_PRODUCTS' }),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Shopee tab did not respond.')), 5000); }),
+          ]);
+        } finally { clearTimeout(timer); }
         if (!Array.isArray(result?.products)) throw new Error('Not a Shopee listing');
         return { id: tab.id, title: result.title || `Shopee tab ${tab.id}`, products: result.products.map(raw => ({ ...BudolCatalog.normalizeProduct(raw), observedAt: new Date().toISOString(), discount: typeof raw.discount === 'number' && Number.isFinite(raw.discount) && raw.discount >= 0 && raw.discount <= 100 ? raw.discount : null })) };
       }));
@@ -523,6 +530,10 @@
     const revision = importRevision;
     board = await request('BUDOL_IMPORT', { board: imported });
     if (revision === importRevision) { imported = null; $('import-file').value = ''; $('import-preview').textContent = 'Import complete. Imported watches are paused with Discord off.'; }
+    else if (imported) {
+      const added = imported.products.filter(p => !board.products.some(saved => saved.id === p.id)).length;
+      $('import-preview').textContent = `${added} new products; ${imported.products.length - added} already saved and will be skipped.`;
+    }
     render(); notify('New products imported.');
   }));
   const form = $('calculator');
@@ -637,7 +648,8 @@
     } catch { notify('Could not read your discount setting. Showing 50% or more; try reloading.', true); }
     $('deal-threshold').value = discountThreshold;
     try {
-      board = await request('BUDOL_BOARD_GET'); render(); await renderAlerts();
+      board = await request('BUDOL_BOARD_GET'); render();
+      try { await renderAlerts(); } catch { $('alerts').textContent = 'Alert history could not be loaded. Reload Budol to try again.'; }
       if (location.hash === '#alerts-panel') $('alerts-panel').open = true;
       $('source-panel').open = true;
       await readPage();
