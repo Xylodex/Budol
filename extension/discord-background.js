@@ -42,6 +42,27 @@
       chrome.action.setTitle({ tabId, title: `Budol — ${text}` }),
     ]);
   }
+  // Shared by explicit context-menu sends and opted-in price watches. Never retries.
+  globalThis.BudolDiscordSend = async payload => {
+    const stored = await chrome.storage.local.get(['budolDiscordWebhook', 'budolDiscordRetryAt']);
+    if (!stored.budolDiscordWebhook) throw new Error('Configure Discord in Budol settings.');
+    const url = BudolDiscord.webhook(stored.budolDiscordWebhook);
+    if (stored.budolDiscordRetryAt > Date.now()) throw new Error('Discord is rate-limiting requests. Try again later.');
+    let result;
+    try {
+      result = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(15000) });
+    } catch { throw new Error('Could not confirm delivery. Check Discord before trying again to avoid a duplicate.'); }
+    if (result.status === 429) {
+      const data = await result.json().catch(() => ({}));
+      const seconds = Math.min(86400, Math.max(1, Number(data.retry_after) || 5));
+      await chrome.storage.local.set({ budolDiscordRetryAt: Date.now() + seconds * 1000 });
+      throw new Error(`Discord is rate-limiting requests. Try again in ${Math.ceil(seconds)} seconds.`);
+    }
+    if ([401, 403, 404].includes(result.status)) throw new Error('Discord rejected the webhook. Update it in Budol’s Discord settings.');
+    if (!result.ok) throw new Error('Discord could not accept this item. Check the webhook channel and try again. Forum channels need a thread_id in the webhook URL.');
+    const receipt = await result.json().catch(() => null);
+    if (!receipt?.id) throw new Error('Could not confirm delivery. Check Discord before trying again.');
+  };
   async function send(info, tab) {
     if (info.menuItemId !== menuId || !Number.isInteger(tab?.id)) return;
     const tabId = tab.id, frameId = info.frameId || 0;
@@ -63,20 +84,7 @@
       const key = `${tabId}:${payload.embeds[0].url}`;
       if (Date.now() - (recentlySent.get(key) || 0) < 10000) throw new Error('This item was just sent. Wait a few seconds before sending it again.');
       await status(tabId, frameId, 'Sending item to Discord…', false, true);
-      let result;
-      try {
-        result = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(15000) });
-      } catch { throw new Error('Could not confirm delivery. Check Discord before trying again to avoid a duplicate.'); }
-      if (result.status === 429) {
-        const data = await result.json().catch(() => ({}));
-        const seconds = Math.min(86400, Math.max(1, Number(data.retry_after) || 5));
-        await chrome.storage.local.set({ budolDiscordRetryAt: Date.now() + seconds * 1000 });
-        throw new Error(`Discord is rate-limiting requests. Try again in ${Math.ceil(seconds)} seconds.`);
-      }
-      if ([401, 403, 404].includes(result.status)) throw new Error('Discord rejected the webhook. Update it in Budol’s Discord settings.');
-      if (!result.ok) throw new Error('Discord could not accept this item. Check the webhook channel and try again. Forum channels need a thread_id in the webhook URL.');
-      const receipt = await result.json().catch(() => null);
-      if (!receipt?.id) throw new Error('Could not confirm delivery. Check Discord before trying again.');
+      await BudolDiscordSend(payload);
       recentlySent.set(key, Date.now());
       for (const [id, at] of recentlySent) if (Date.now() - at > 10000) recentlySent.delete(id);
       await status(tabId, frameId, 'Item sent to Discord.');

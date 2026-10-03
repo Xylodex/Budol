@@ -157,7 +157,8 @@
         if (!clean(raw.variant.name, 100) || !Number.isSafeInteger(raw.variant.price) || raw.variant.price < 0 || raw.variant.price > MAX_MONEY) throw new Error('Invalid confirmed variant.');
         variant = { name: clean(raw.variant.name, 100), price: raw.variant.price, at: date(raw.variant.at) };
       }
-      return { ...product, collection: clean(raw.collection, 60) || 'Wishlist', notes: clean(raw.notes, 1000), savedAt: date(raw.savedAt), lastSeen: date(raw.lastSeen), history, rangeHistory, variant };
+      const watch = raw.watch == null ? null : normalizeWatch(raw.watch);
+      return { ...product, collection: clean(raw.collection, 60) || 'Wishlist', notes: clean(raw.notes, 1000), savedAt: date(raw.savedAt), lastSeen: date(raw.lastSeen), history, rangeHistory, variant, watch };
     });
     return { version: 1, products };
   }
@@ -177,6 +178,18 @@
 
   const format = cents => cents == null ? 'Price unavailable' : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
   const priceLabel = product => product.priceRange ? `${format(product.priceRange.min)}–${format(product.priceRange.max)} · varies by variant` : format(product.price);
+  function normalizeWatch(raw) {
+    if (!['target', 'low'].includes(raw?.mode) || (raw.mode === 'target' && (!Number.isSafeInteger(raw.target) || raw.target < 0 || raw.target > MAX_MONEY))) throw new Error('Enter a valid watch target.');
+    const timestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
+    if (!timestamp(raw.createdAt)) throw new Error('Invalid watch date.');
+    return { mode: raw.mode, target: raw.mode === 'target' ? raw.target : null, paused: raw.paused !== false, discord: raw.discord === true, createdAt: timestamp(raw.createdAt), lastAlertAt: timestamp(raw.lastAlertAt), lastAlertPrice: Number.isSafeInteger(raw.lastAlertPrice) && raw.lastAlertPrice >= 0 ? raw.lastAlertPrice : null };
+  }
+  function watchMatches(saved, product, now) {
+    const watch = saved.watch;
+    if (!watch || watch.paused || product.price == null || now <= watch.createdAt || (watch.lastAlertAt && Date.parse(now) - Date.parse(watch.lastAlertAt) < 86400000) || watch.lastAlertPrice === product.price) return false;
+    if (watch.mode === 'target') return product.price <= watch.target;
+    return saved.history.length > 0 && product.price < Math.min(...saved.history.map(point => point.price));
+  }
   function dealFilters(values = {}) {
     const terms = value => String(value || '').toLocaleLowerCase().split(',').map(s => s.trim()).filter(Boolean).slice(0, 30);
     const numeric = (value, max, integer = false) => {
@@ -197,5 +210,5 @@
       (filters.rating === null || (product.ratingValue != null && product.ratingValue >= filters.rating)) &&
       (filters.sold === null || (product.soldValue != null && product.soldValue >= filters.sold));
   }
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal });
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, watchMatches });
 })();
