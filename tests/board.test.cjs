@@ -66,6 +66,26 @@ test('deal filters search beyond the first six cards and reset cleanly', async t
   assert.match(document.getElementById('deal-count').textContent, /^10/);
 });
 
+test('comparison retains its shortlist across filters, caps selection and keeps shipping unknown', async t => {
+  const items = Array.from({ length: 5 }, (_, i) => saved(i + 1, `Item ${i + 1}`, i ? 20000 : null));
+  items[0].priceRange = { min: 10000, max: 30000 };
+  const { document, dom } = await setup(t, [], items);
+  const buttons = [...document.querySelectorAll('#candidates [data-compare-id]')];
+  buttons[0].click(); buttons[1].click();
+  const form = document.querySelector('#comparison form');
+  assert.equal(form.elements.price.value, '');
+  assert.equal(form.elements.shipping.value, '');
+  assert.match(document.querySelector('.comparison-total').textContent, /incomplete/);
+  for (const [name, value] of [['price', '250'], ['shipping', '40'], ['voucher', '25']]) { form.elements[name].value = value; form.elements[name].dispatchEvent(new dom.window.Event('input')); }
+  assert.match(document.querySelector('.comparison-total').textContent, /₱265.00/);
+  buttons[2].click(); buttons[3].click(); assert.equal(buttons[4].disabled, true);
+  assert.equal(document.querySelector('#comparison form').elements.shipping.value, '40');
+  document.getElementById('deal-filters').elements.required.value = 'missing'; document.getElementById('deal-filters').dispatchEvent(new dom.window.Event('input'));
+  assert.equal(document.querySelectorAll('.candidate').length, 0); assert.equal(document.querySelectorAll('.comparison-card').length, 4);
+  document.querySelector('.comparison-card button').click(); assert.equal(document.querySelectorAll('.comparison-card').length, 3);
+  document.getElementById('clear-comparison').click(); assert.equal(document.querySelectorAll('.comparison-card').length, 0);
+});
+
 test('discovery recovers from a closed source tab and can switch between connected Shopee tabs', async t => {
   const { chrome, document, dom } = await setup(t);
   chrome.tabs.query = async () => [{ id: 3 }, { id: 4 }, { id: 5 }];

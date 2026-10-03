@@ -5,6 +5,7 @@
   const date = at => new Date(at).toLocaleString();
   let board = { version: 1, products: [] };
   let candidates = [];
+  const comparison = new Map();
   let imported = null;
   let candidateLimit = 6;
   let removedProduct = null;
@@ -58,6 +59,71 @@
     anchor.href = product.url; anchor.target = '_blank'; anchor.rel = 'noreferrer';
     return anchor;
   }
+  function compareButton(product) {
+    const button = element('button', 'Compare'); button.type = 'button'; button.dataset.compareId = product.id;
+    button.addEventListener('click', () => {
+      if (comparison.has(product.id)) comparison.delete(product.id);
+      else {
+        if (comparison.size >= 4) { notify('Remove an item from comparison before adding another.', true); return; }
+        const evidence = { ...board.products.find(p => p.id === product.id), ...product };
+        const price = evidence.variant?.price ?? evidence.price;
+        comparison.set(product.id, { product: evidence, inputs: { price: price == null ? '' : (price / 100).toFixed(2), shipping: '', voucher: '0' } });
+        $('compare-panel').open = true;
+      }
+      renderComparison();
+    });
+    return button;
+  }
+  function syncCompareButtons() {
+    for (const button of document.querySelectorAll('[data-compare-id]')) {
+      const selected = comparison.has(button.dataset.compareId);
+      button.textContent = selected ? 'Remove from comparison' : 'Compare';
+      button.setAttribute('aria-pressed', String(selected));
+      button.disabled = !selected && comparison.size >= 4;
+    }
+  }
+  function renderComparison() {
+    $('compare-count').textContent = `(${comparison.size}/4)`;
+    $('clear-comparison').disabled = comparison.size === 0;
+    $('comparison').replaceChildren();
+    if (comparison.size < 2) $('comparison').append(element('p', comparison.size ? 'Add one more product to compare.' : 'No products selected. Use Compare on a product.'));
+    for (const [id, entry] of comparison) {
+      const { product, inputs } = entry;
+      const card = element('article', undefined, 'comparison-card');
+      const title = element('h3'); title.append(link(product)); card.append(title);
+      const facts = element('dl');
+      const fact = (name, value) => facts.append(element('dt', name), element('dd', value));
+      fact('Listing price', BudolCatalog.priceLabel(product));
+      fact('Manual variant', product.variant ? `${product.variant.name} · ${format(product.variant.price)} · ${date(product.variant.at)}` : 'None confirmed');
+      fact('Lowest retained single price', product.history?.length ? format(Math.min(...product.history.map(p => p.price))) : 'Not observed');
+      fact('Rating', product.ratingValue == null ? 'Unknown' : `${product.ratingValue}/5`);
+      fact('Sold', product.soldText || (product.soldValue == null ? 'Unknown' : String(product.soldValue)));
+      fact('Seller', product.seller || 'Unknown'); fact('Ships from', product.location || 'Unknown');
+      fact('Observed', product.observedAt || product.lastSeen ? date(product.observedAt || product.lastSeen) : 'Time unavailable');
+      card.append(facts);
+      const form = element('form'); form.setAttribute('aria-label', `Estimate for ${product.title}`);
+      const output = element('p', undefined, 'comparison-total'); output.setAttribute('role', 'status');
+      const update = () => {
+        const price = BudolCatalog.money(inputs.price), shipping = BudolCatalog.money(inputs.shipping), voucher = BudolCatalog.money(inputs.voucher);
+        if ([price, shipping, voucher].includes(null)) { output.textContent = 'Estimate incomplete — enter a price, shipping (0 if free), and voucher amount.'; return; }
+        const result = BudolCatalog.calculate({ price, shipping, discount: voucher, quantity: 1, percent: 0, cap: null, minimum: 0, cashback: 0 });
+        output.textContent = `Estimated payment: ${format(result.total)} · voucher applied ${format(result.voucher)}`;
+      };
+      for (const [name, label] of [['price', 'Item price (PHP)'], ['shipping', 'Shipping (PHP)'], ['voucher', 'Eligible voucher amount (PHP)']]) {
+        const control = element('input'); control.type = 'number'; control.name = name; control.min = '0'; control.max = '1000000'; control.step = '0.01'; control.required = true; control.value = inputs[name];
+        const field = element('label', label); field.append(control); form.append(field);
+        control.addEventListener('input', () => { inputs[name] = control.value; update(); });
+      }
+      form.addEventListener('submit', event => event.preventDefault()); update();
+      const remove = element('button', 'Remove from comparison'); remove.type = 'button';
+      remove.addEventListener('click', () => { comparison.delete(id); renderComparison(); $('compare-panel').querySelector('summary').focus(); });
+      card.append(form, output, element('p', 'Confirm variant, shipping and voucher eligibility on Shopee. Other fees are not included.', 'hint'), remove);
+      $('comparison').append(card);
+    }
+    syncCompareButtons();
+  }
+  $('clear-comparison').addEventListener('click', () => { comparison.clear(); renderComparison(); $('compare-panel').querySelector('summary').focus(); });
+  renderComparison();
   function filteredCandidates() {
     const filters = BudolCatalog.dealFilters(Object.fromEntries(new FormData($('deal-filters'))));
     $('deal-filter-count').textContent = `(${[filters.required.length > 0, filters.excluded.length > 0, filters.budget !== null, filters.rating !== null, filters.sold !== null].filter(Boolean).length} active)`;
@@ -83,7 +149,7 @@
         [...$('candidates').children].find(node => node.dataset.productId === product.id)?.focus();
         notify(`Saved “${product.title}”.`);
       }));
-      card.append(button); $('candidates').append(card);
+      card.append(button, compareButton(product)); $('candidates').append(card);
     }
     if (candidates.length && !shown.length) {
       const empty = element('p', 'No loaded products match. Adjust the product filters or discount threshold, or scroll on Shopee and refresh.', 'hint');
@@ -93,6 +159,7 @@
     }
     $('more-candidates').hidden = shown.length <= candidateLimit;
     $('more-candidates').textContent = `Show ${Math.min(6, shown.length - candidateLimit)} more products`;
+    syncCompareButtons();
   }
   $('deal-filters').addEventListener('input', () => { candidateLimit = 6; renderCandidates(); });
   $('deal-filters').addEventListener('submit', event => event.preventDefault());
@@ -193,7 +260,7 @@
       $('undo-message').textContent = `Removed “${product.title}”.`;
       $('undo-notice').hidden = false; $('undo').focus(); notify('Product removed.');
     }));
-    actions.append(use, remove); card.append(actions, watchView(product), historyView(product));
+    actions.append(use, compareButton(product), remove); card.append(actions, watchView(product), historyView(product));
     if (product.rangeHistory?.length) {
       const ranges = element('details'); rememberDisclosure(ranges, `${product.id}:ranges`);
       ranges.append(element('summary', `Listing ranges (${product.rangeHistory.length})`));
