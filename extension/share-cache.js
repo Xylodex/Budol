@@ -3,6 +3,12 @@
   const MAX_IMAGE = 2 * 1024 * 1024, MAX_BYTES = 32 * 1024 * 1024, MAX_ITEMS = 200;
   let database, queue = Promise.resolve(), revision = 0;
   const downloads = new Map();
+  const lanes = [Promise.resolve(), Promise.resolve(), Promise.resolve()]; let nextLane = 0;
+  function queuedDownload(url, signal) {
+    const lane = nextLane++ % lanes.length;
+    const task = lanes[lane].then(() => { signal.throwIfAborted(); return download(url, signal); });
+    lanes[lane] = task.catch(() => {}); return task;
+  }
   function open() {
     if (!database) database = new Promise((resolve, reject) => {
       const request = indexedDB.open('budol-share-cache', 1);
@@ -65,7 +71,7 @@
     if (!record || record.image || !product.image) return;
     downloads.get(id)?.abort(); const controller = new AbortController(); downloads.set(id, controller);
     let image = null, imageStatus;
-    try { image = await download(product.image, controller.signal); imageStatus = 'Saved locally'; }
+    try { image = await queuedDownload(product.image, controller.signal); imageStatus = 'Saved locally'; }
     catch (error) { imageStatus = error.name === 'AbortError' || error.name === 'TimeoutError' ? 'Image download interrupted' : error.message; }
     finally { if (downloads.get(id) === controller) downloads.delete(id); }
     if (epoch !== revision) return;

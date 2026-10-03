@@ -8,6 +8,7 @@
   const comparison = new Map();
   let imported = null;
   let candidateLimit = 6;
+  let cacheLimit = 20;
   let removedProduct = null;
   let hasEstimate = false;
   let estimateTimer;
@@ -121,18 +122,22 @@
     const cache = result.cache;
     $('cache-usage').textContent = `${cache.items.length}/200 snapshots · ${(cache.imageBytes / 1048576).toFixed(2)} / 32 MiB of images`;
     $('cache-items').replaceChildren();
-    for (const item of cache.items.slice(0, 20)) {
+    for (const item of cache.items.slice(0, cacheLimit)) {
       const row = element('article', undefined, 'cached-share');
       row.append(link(item.product), element('p', `Captured ${date(item.capturedAt)} · ${item.imageStatus}`, 'hint'), sendSavedButton(item.product));
       $('cache-items').append(row);
     }
-    if (cache.items.length > 20) $('cache-items').append(element('p', 'Showing the 20 most recent snapshots. Saved products can also be sent from their cards.', 'hint'));
+    if (cache.items.length > cacheLimit) {
+      const more = element('button', 'Show more cached items'); more.type = 'button';
+      more.addEventListener('click', () => action(more, async () => { cacheLimit += 20; await refreshCache(); })); $('cache-items').append(more);
+    }
   }
   $('backup-panel').addEventListener('toggle', () => { if ($('backup-panel').open) refreshCache().catch(error => { $('cache-usage').textContent = error.message; }); });
   $('refresh-cache').addEventListener('click', () => action($('refresh-cache'), refreshCache));
   for (const [id, scope] of [['clear-images', 'images'], ['clear-cache', 'all']]) $(id).addEventListener('click', () => action($(id), async () => {
     const result = await chrome.runtime.sendMessage({ type: 'BUDOL_CACHE_CLEAR', scope });
     if (!result?.ok) throw new Error(result?.error || 'Cache could not be cleared.');
+    cacheLimit = 20;
     await refreshCache(); notify(scope === 'images' ? 'Downloaded images cleared. Saved product details remain.' : 'Share cache cleared. Saved products and settings remain.');
   }));
   function offersView(product) {

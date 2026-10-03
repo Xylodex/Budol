@@ -64,6 +64,12 @@ test('installed Budol connects, exposes real tools, requires write opt-in and di
     expect((await call('send_discord', { tab_id, url: keyboard.url })).structuredContent.sent).toBe(keyboard.url);
     expect(discordPosts.length).toBe(1); expect(discordPosts[0].embeds[0].fields.some(field => field.name.includes('Cashback'))).toBe(true);
     expect((await call('send_discord', { tab_id, url: keyboard.url })).isError).toBe(true); expect(discordPosts.length).toBe(1);
+    await shop.close();
+    const cache = (await call('list_cached')).structuredContent;
+    expect(cache.items.some(item => item.product.url === keyboard.url)).toBe(true);
+    await worker.evaluate(async () => { const stored = await chrome.storage.local.get('budolMcpReceipts'); await chrome.storage.local.set({ budolMcpReceipts: stored.budolMcpReceipts.map(row => ({ ...row, at: Date.now() - 61000 })) }); });
+    expect((await call('send_discord', { url: keyboard.url })).structuredContent.source).toBe('saved snapshot');
+    expect(discordPosts.length).toBe(2); expect(discordPosts[1].embeds[0].footer.text).toContain('Saved snapshot');
     expect((await call('remove_saved', { url: keyboard.url })).structuredContent.removed).toBe(keyboard.url);
     expect((await call('list_saved')).structuredContent.total).toBe(0);
     await connector.setViewportSize({ width: 320, height: 850 });

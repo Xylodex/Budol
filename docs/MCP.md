@@ -1,6 +1,6 @@
 # Codex MCP integration
 
-Budol 1.11.0 exposes nine tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
+Budol 1.12.0 exposes ten tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
 
 ## Setup
 
@@ -42,11 +42,12 @@ For a separately extracted public ZIP, copy the private pairing file from your o
 | `budol_list_tabs` | Shopee PH tab IDs and titles only |
 | `budol_get_products` | Loaded listing cards, prices, discount claims and offer evidence; keyword, discount and price filters; pagination |
 | `budol_list_saved` | Saved public evidence, optionally retained single-price/range histories; title search and pagination |
+| `budol_list_cached` | Retained public sharing snapshots, capture dates and image availability; no Shopee tab needed |
 | `budol_get_alerts` | Recent price alerts without clearing them or sending messages |
 | `budol_calculate` | A manual estimate; explicit shipping and eligible voucher terms; Coins remain separate |
 | `budol_save_product` | Save an exact product URL from the specified loaded tab |
 | `budol_remove_saved` | Remove a saved product, its retained history and watch |
-| `budol_send_discord` | Immediately share one loaded product, image and readable details through your configured webhook |
+| `budol_send_discord` | Share a saved/cached snapshot with local image bytes when `tab_id` is omitted; supply `tab_id` to capture a loaded product |
 
 Inputs and returned price amounts use integer PHP centavos, except `max_price_php`, which is a decimal PHP string. `keywords` is a comma-separated list of required title terms. A price range matches a maximum price when its starting price fits. Unknown prices/discounts fail the corresponding filters. Listing reads inspect at most 200 loaded cards, return 20 by default and at most 50 per page. `next_offset` identifies the next page. Saved queries follow the same pagination. Alerts return the latest 20 by default, at most 50.
 
@@ -56,6 +57,8 @@ Example requests to Codex:
 - “Show my saved items and their observed price history.”
 - “Save this product from tab 123 to Budol.”
 - “Send that product to my configured Discord channel.” (Requires both connector switches.)
+
+For saved/cached sends, omit `tab_id`; the browser connector stays open but Shopee can be closed. Images are uploaded from the local cache or omitted if unavailable. See [saved sharing and cleanup](OFFLINE-SHARING.md). After upgrading from 1.11, restart the Codex MCP server to refresh its tools. If an older broker reports an unknown command, close connector tabs and let the old broker idle for 95 seconds before checking status again.
 
 Tools do not navigate, scrape more pages, solve verification, claim vouchers, configure watches, inspect account/cart/order data, or place orders. An empty product list can mean no loaded cards, a CAPTCHA or an unsupported layout. Open/scroll the page normally and refresh Shopee after updating Budol. Existing price-watch behavior continues separately when you browse.
 

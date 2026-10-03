@@ -94,12 +94,13 @@
       try { response = await chrome.tabs.sendMessage(tabId, { type: 'BUDOL_CONTEXT_PRODUCT', linkUrl: info.linkUrl }, { frameId }); }
       catch { throw new Error('Refresh Shopee after updating Budol, then right-click the product again.'); }
       if (!response?.product) throw new Error('Right-click a product card, its image or its link on Shopee.');
-      await globalThis.BudolShareCache?.capture(response.product).catch(() => {});
       const payload = BudolDiscord.payload(response.product);
       const key = `${tabId}:${payload.embeds[0].url}`;
       if (Date.now() - (recentlySent.get(key) || 0) < 10000) throw new Error('This item was just sent. Wait a few seconds before sending it again.');
       await status(tabId, frameId, 'Sending item to Discord…', false, true);
-      await BudolDiscordSend(payload);
+      await globalThis.BudolShareCache?.capture(response.product).catch(() => {});
+      const cached = await globalThis.BudolShareCache?.get(BudolCatalog.productIdentity(response.product.url).id).catch(() => null);
+      await BudolDiscordSend(payload, cached?.image);
       recentlySent.set(key, Date.now());
       for (const [id, at] of recentlySent) if (Date.now() - at > 10000) recentlySent.delete(id);
       await status(tabId, frameId, 'Item sent to Discord.');
