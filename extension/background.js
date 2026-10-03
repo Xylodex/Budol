@@ -143,7 +143,9 @@ async function mcpDiscord(message, sender) {
     receipts.push({ id: message.requestId, url: product.url, at: Date.now() });
     await chrome.storage.local.set({ budolMcpReceipts: receipts });
   });
-  await BudolDiscordSend(BudolDiscord.payload({ ...product, discount: message.product.discount }));
+  const share = { ...product };
+  for (const key of ['discount', 'image', 'originalPrice', 'rating', 'sold', 'shipping']) share[key] = message.product[key];
+  await BudolDiscordSend(BudolDiscord.payload(share));
   return { ok: true };
 }
 chrome.runtime.onMessage.addListener((message, sender, respond) => {

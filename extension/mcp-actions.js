@@ -70,8 +70,11 @@
         await request('BUDOL_REMOVE', { id: identity.id }); return { removed: identity.url };
       }
       case 'send_discord': {
-        check(true); const product = await exact(args); check(true);
-        await request('BUDOL_MCP_DISCORD', { product, requestId: job.id }); return { sent: product.url };
+        check(true); const product = await exact(args);
+        const details = await chrome.tabs.sendMessage(args.tab_id, { type: 'BUDOL_PRODUCT_DETAILS', url: product.url });
+        if (BudolCatalog.productIdentity(details?.product?.url)?.id !== product.id) throw new Error('Product is no longer loaded. Refresh the product list before sending.');
+        check(true);
+        await request('BUDOL_MCP_DISCORD', { product: details.product, requestId: job.id }); return { sent: product.url };
       }
       default: throw new Error('Unknown Budol tool.');
     }

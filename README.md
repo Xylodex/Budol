@@ -2,6 +2,8 @@
 
 Find discounted products on Shopee Philippines. Budol is a Chrome and Edge extension that highlights matching listings and puts the highest advertised discounts first in a local Deals page.
 
+Version **1.11.0** adds a local **Codex MCP** connector with nine tools for reading loaded deals/offers, saved observations and alerts, estimating costs, and optional saves/removal/Discord sharing. Run `npm ci` then `npm run mcp:setup -- --register` from the full repository. Reload Budol, open **Discord settings → Codex MCP**, and connect. See [MCP setup, tools and access controls](docs/MCP.md).
+
 Version **1.10.0** adds **Offers shown** to Deals, Saved and Compare: vouchers, shipping, Coins/cashback, bundles, add-ons, Flash Deals, payment/channel offers and campaign claims. It keeps captured conditions separate from listing prices and includes them in Discord shares and exports. See the [Shopee promotion research and limits](docs/SHOPEE-PROMOTIONS.md).
 
 Version **1.9.0** adds listing ranges, keyword/budget/rating/sales filters, observed price watches, a four-product comparison, and CSV export. The Genshin-inspired menus and blue ₱1,000 palette remain, with original local artwork. The [implementation plan](docs/IMPLEMENTATION-PLAN-1.9.md) records scope; the [GitHub research](docs/GITHUB-FEATURE-RESEARCH.md) records the projects that informed it. No external repository code was copied.
@@ -19,7 +21,7 @@ Version **1.7.1** fixes an uncaught error when Budol reloads while a Shopee tab 
 
 For an existing installation, replace the files in the same loaded folder, click **Reload** on its extension card, and refresh Shopee. This preserves the existing extension's local data. Export a backup before uninstalling or moving to a different installation.
 
-No Node.js, account, or build step is needed to use the extension.
+No Node.js, account, or build step is needed for normal extension use. The optional MCP integration requires Node.js and the full repository.
 
 ## Find deals
 
@@ -47,7 +49,7 @@ The embed contains a clickable product title, photo, listing price, advertised d
 
 Use **Discord settings** in the popup (or the extension's Options page) to save or replace a webhook. Saving does not send a message. Disconnect clears the saved webhook. For forum channels, add a valid thread_id query parameter. A missing webhook opens settings on the first send attempt.
 
-This workspace's unpacked installation imports its private local setup on reload. The public ZIP excludes that setup: recipients supply their own webhook. The private file is ignored by Git and excluded from product backups. Do not share the unpacked folder containing discord-local.json; use the ZIP.
+This workspace's unpacked installation imports its private local setup on reload. The public ZIP excludes that setup: recipients supply their own webhook. Private setup files are ignored by Git and excluded from product backups. Do not share an unpacked folder containing discord-local.json or mcp-local.json; use the ZIP.
 
 Repeated clicks are suppressed while sending and for ten seconds after a successful send from the same tab. Rate limits show a retry time. Uncertain network delivery is never retried automatically: check Discord first to avoid a duplicate.
 

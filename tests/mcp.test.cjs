@@ -4,7 +4,7 @@ const { mkdtemp, writeFile, rm } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const { resolve } = require('node:path');
 const { randomUUID } = require('node:crypto');
-const { createBrowser, product, wait } = require('./helpers.cjs');
+const { createBrowser, product, wait, source } = require('./helpers.cjs');
 const origin = 'chrome-extension://' + 'a'.repeat(32);
 async function broker(t, options = {}) {
   const { startBroker } = await import('../mcp/broker.mjs');
@@ -96,4 +96,29 @@ test('extension tools filter loaded evidence, omit private saved data and rechec
   let active = true; b.chrome.tabs.sendMessage = async () => { active = false; return { products: [raw] }; };
   await assert.rejects(execute('save_product', { tab_id: 7, url: raw.url }, { writes: true }, () => active), /disconnected/);
   assert.equal(writes, 0);
+});
+
+test('MCP Discord claims are persistent, reject page callers and do not block the board during delivery', async () => {
+  const vm = require('node:vm');
+  const storage = { budolDiscordWebhook: 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz' };
+  let posts = 0, finish;
+  function worker() {
+    let listener;
+    const context = vm.createContext({ URL, console, AbortSignal, chrome: {
+      runtime: { getURL: p => `chrome-extension://budol/${p}`, onMessage: { addListener: f => { listener = f; } }, onInstalled: { addListener() {} }, onStartup: { addListener() {} } },
+      contextMenus: { onClicked: { addListener() {} } },
+      storage: { local: { get: async () => structuredClone(storage), set: async value => Object.assign(storage, structuredClone(value)) } },
+    }, fetch: async () => { posts++; assert.equal(storage.budolMcpReceipts.length, 1); await new Promise(resolve => { finish = resolve; }); throw new Error('Timeout'); } });
+    context.importScripts = (...files) => files.forEach(file => vm.runInContext(source(file), context)); vm.runInContext(source('background.js'), context);
+    return (message, url = 'chrome-extension://budol/mcp.html') => new Promise(resolve => listener(message, { url }, resolve));
+  }
+  let send = worker();
+  const message = { type: 'BUDOL_MCP_DISCORD', requestId: randomUUID(), product: { url: 'https://shopee.ph/product/1/2', price: 10000, title: 'Keyboard', scope: 'listing', currency: 'PHP' } };
+  assert.equal((await send(message, 'https://shopee.ph/')).ok, false);
+  const pending = send(message); await wait(20);
+  assert.equal((await send({ type: 'BUDOL_BOARD_GET' })).ok, true);
+  assert.equal((await send(message)).ok, false); assert.equal(posts, 1);
+  finish(); assert.match((await pending).error, /not confirm delivery/);
+  send = worker(); assert.equal((await send(message)).ok, false);
+  assert.equal((await send({ ...message, requestId: randomUUID() })).ok, false); assert.equal(posts, 1);
 });

@@ -39,8 +39,9 @@
     }
   }
   async function disconnect() {
-    const previous = connection; connection = null; controls(); $('mcp-status').textContent = 'Disconnected';
+    const previous = connection; connection = null; connecting = true; controls(); $('mcp-status').textContent = 'Disconnecting…';
     if (previous) await post(previous, '/disconnect', { session: previous.session }, 1500).catch(() => {});
+    connecting = false; controls(); $('mcp-status').textContent = 'Disconnected';
   }
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (connection || connecting) return;

@@ -5,7 +5,7 @@ import { loadConfig } from './config.mjs';
 
 const commands = new Set(['list_tabs', 'get_products', 'list_saved', 'get_alerts', 'save_product', 'remove_saved', 'send_discord']);
 const writes = new Set(['save_product', 'remove_saved', 'send_discord']);
-const equal = (a, b) => typeof a === 'string' && a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const equal = (a, b) => typeof a === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export async function startBroker(config, { timeout = 25000, lease = 35000, idle = 90000 } = {}) {
   let connection = null, lastActivity = Date.now();
   const jobs = new Map();
