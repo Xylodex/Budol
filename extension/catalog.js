@@ -84,7 +84,7 @@
     return [...new Map(offers.map(offer => [`${offer.kind}:${offer.text.toLowerCase()}`, offer])).values()].slice(0, 12);
   }
   function visibleText(node, cache = new WeakMap()) {
-    if (!cache.has(node)) cache.set(node, [...node.childNodes].map(child => child.nodeType === 3 ? child.textContent : visible(child) && !child.matches('script, style, template, [data-sqe="name"], [class*="line-clamp-2"], h1') ? visibleText(child, cache) : '').join(' ').replace(/\s+/g, ' ').trim());
+    if (!cache.has(node)) cache.set(node, [...node.childNodes].map(child => child.nodeType === 3 ? child.textContent : child.nodeType === 1 && visible(child) && !child.matches('script, style, template, [data-sqe="name"], [class*="line-clamp-2"], h1') ? visibleText(child, cache) : '').join(' ').replace(/\s+/g, ' ').trim());
     return cache.get(node);
   }
   function readOffers(root, scope = 'item-card') {

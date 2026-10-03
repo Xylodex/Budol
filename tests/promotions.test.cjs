@@ -50,7 +50,7 @@ test('unmarked conditional prices and hidden conditions are handled separately',
   assert.equal(api.readProduct(card).price, null);
   card.querySelector('small').hidden = true;
   assert.equal(api.readProduct(card).price, 28500);
-  card.insertAdjacentHTML('beforeend', '<div>Shop voucher <span hidden>Min spend ₱9999</span><span>Min spend ₱500</span></div>');
+  card.insertAdjacentHTML('beforeend', '<div>Shop voucher <!-- framework placeholder --><span hidden>Min spend ₱9999</span><span>Min spend ₱500</span></div>');
   const voucher = api.readProduct(card).offers.find(o => o.kind === 'voucher');
   assert.equal(voucher.minimum, 50000); assert.ok(!voucher.text.includes('9999'));
 });
