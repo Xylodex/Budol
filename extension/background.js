@@ -29,7 +29,7 @@ async function handle(message, sender) {
         const product = observations.get(saved.id);
         if (!product) return saved;
         // Avoid a storage-change -> scan -> write feedback loop for unchanged cards.
-        if (saved.price === product.price && saved.title === product.title && saved.lastSeen.slice(0, 10) === now.slice(0, 10)) return saved;
+        if (JSON.stringify(BudolCatalog.normalizeProduct(saved)) === JSON.stringify(product) && saved.lastSeen.slice(0, 10) === now.slice(0, 10)) return saved;
         return BudolCatalog.observe(saved, product, now);
       });
       break;
@@ -39,6 +39,18 @@ async function handle(message, sender) {
       if (!item) throw new Error('This product is no longer saved. Refresh the board.');
       item.collection = String(message.collection || 'Wishlist').trim().slice(0, 60) || 'Wishlist';
       item.notes = String(message.notes || '').trim().slice(0, 1000);
+      break;
+    }
+    case 'BUDOL_VARIANT': {
+      const item = board.products.find(item => item.id === message.id);
+      if (!item) throw new Error('This product is no longer saved.');
+      if (message.variant === null) item.variant = null;
+      else {
+        const price = BudolCatalog.money(message.variant?.price);
+        const name = String(message.variant?.name || '').trim().slice(0, 100);
+        if (!name || price === null) throw new Error('Enter a variant name and a valid PHP price.');
+        item.variant = { name, price, at: now };
+      }
       break;
     }
     case 'BUDOL_REMOVE': board.products = board.products.filter(item => item.id !== message.id); break;
@@ -57,7 +69,7 @@ async function handle(message, sender) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-  if (!['BUDOL_BOARD_GET', 'BUDOL_SAVE', 'BUDOL_OBSERVE', 'BUDOL_EDIT', 'BUDOL_REMOVE', 'BUDOL_IMPORT'].includes(message?.type)) return;
+  if (!['BUDOL_BOARD_GET', 'BUDOL_SAVE', 'BUDOL_OBSERVE', 'BUDOL_EDIT', 'BUDOL_REMOVE', 'BUDOL_IMPORT', 'BUDOL_VARIANT'].includes(message?.type)) return;
   // One writer prevents concurrent tabs from losing each other's saves.
   pending = pending.then(() => handle(message, sender));
   pending.then(board => respond({ ok: true, board }), error => respond({ ok: false, error: error.message }));

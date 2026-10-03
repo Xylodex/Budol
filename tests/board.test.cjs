@@ -20,6 +20,7 @@ async function setup(t, products = [], candidates = [], fail = '', restoredDraft
     if (message.type === 'BUDOL_REMOVE') board.products = board.products.filter(p => p.id !== message.id);
     if (message.type === 'BUDOL_IMPORT') board.products.push(...message.board.products);
     if (message.type === 'BUDOL_EDIT') Object.assign(board.products.find(p => p.id === message.id), { collection: message.collection, notes: message.notes });
+    if (message.type === 'BUDOL_VARIANT') board.products.find(p => p.id === message.id).variant = message.variant ? { name: message.variant.name, price: Number(message.variant.price) * 100, at: '2026-10-03T00:00:00Z' } : null;
     if (message.type === 'BUDOL_SAVE') board.products.push({ ...message.product, collection: 'Wishlist', notes: '', savedAt: '2026-10-02T04:00:00Z', lastSeen: '2026-10-02T04:00:00Z', history: [] });
     return { ok: true, board: structuredClone(board) };
   };
@@ -88,7 +89,7 @@ test('restored drafts open automatically and removal undo restores the unsaved n
   assert.equal(dom.window.sessionStorage.getItem('budolNoteDrafts'), '[]');
   document.getElementById('undo').click(); await wait();
   assert.equal(document.querySelector('#saved textarea').value, 'Recovered note');
-  document.querySelector('#saved form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await wait();
+  document.querySelector('#saved .notes-form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await wait();
   assert.equal(dom.window.sessionStorage.getItem('budolNoteDrafts'), '[]');
 });
 
@@ -97,6 +98,19 @@ test('a single price observation uses a readable entry rather than a one-point c
   const { document } = await setup(t, [item]);
   assert.equal(document.querySelector('#saved .chart'), null);
   assert.match(document.querySelector('#saved details').textContent, /Visit a listing/);
+});
+
+test('a listing range requires an explicit variant price for estimates', async t => {
+  const item = { ...saved(1, 'Range item', null), priceRange: { min: 19900, max: 69900 } };
+  const { document, dom } = await setup(t, [item]);
+  assert.match(document.querySelector('.product-price').textContent, /varies by variant/);
+  assert.equal(document.querySelector('#saved .primary').disabled, true);
+  const name = document.querySelector('[name="variant-name"]'), price = document.querySelector('[name="variant-price"]');
+  name.value = 'Blue 128GB'; price.value = '499';
+  name.closest('form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await wait();
+  document.querySelector('#saved .primary').click();
+  assert.equal(document.querySelector('#calc-price').value, '499.00');
+  assert.match(document.querySelector('#price-source').textContent, /Blue 128GB.*manually confirmed/);
 });
 
 test('discovery reveals products in batches without a nested scroll list', async t => {
@@ -114,7 +128,7 @@ test('discovery reveals products in batches without a nested scroll list', async
 test('failed saves preserve draft input and expose an actionable error', async t => {
   const { document, dom } = await setup(t, [saved(1, 'Keyboard', 10000)], [], 'BUDOL_EDIT');
   const input = document.querySelector('#saved textarea'); input.value = 'Still drafting'; input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
-  document.querySelector('#saved form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  document.querySelector('#saved .notes-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
   await wait();
   assert.equal(document.querySelector('#saved textarea').value, 'Still drafting');
   assert.equal(document.getElementById('failure').hidden, false);
@@ -125,7 +139,7 @@ test('failed saves preserve draft input and expose an actionable error', async t
 test('undo remains available after an unrelated successful save', async t => {
   const { document, dom } = await setup(t, [saved(1, 'Keyboard', 10000), saved(2, 'Mouse', 20000)]);
   [...document.querySelectorAll('#saved button')].find(n => n.textContent === 'Remove').click(); await wait();
-  document.querySelector('#saved form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })); await wait();
+  document.querySelector('#saved .notes-form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })); await wait();
   assert.equal(document.getElementById('undo-notice').hidden, false);
   document.getElementById('undo').click(); await wait();
   assert.equal(document.querySelectorAll('#saved .product').length, 2);

@@ -66,7 +66,7 @@
       const card = element('article', undefined, 'candidate');
       card.dataset.productId = product.id;
       card.tabIndex = -1;
-      card.append(element('span', product.discount === null ? 'No discount shown' : `${product.discount}% off`, 'discount-tag'), link(product), element('p', `${format(product.price)} · listing price`));
+      card.append(element('span', product.discount === null ? 'No discount shown' : `${product.discount}% off`, 'discount-tag'), link(product), element('p', `${BudolCatalog.priceLabel(product)} · listing price`));
       const saved = board.products.some(item => item.id === product.id);
       const button = element('button', saved ? 'Saved to board' : 'Save to board');
       button.disabled = saved;
@@ -119,21 +119,23 @@
     const title = element('h3'); title.append(link(product));
     card.dataset.productId = product.id;
     card.classList.toggle('price-selected', product.id === priceProductId);
-    card.append(title, element('p', product.collection, 'collection-badge'), element('div', format(product.price), 'product-price'), element('p', `Listing last observed ${date(product.lastSeen)}`, 'hint'));
+    card.append(title, element('p', product.collection, 'collection-badge'), element('div', BudolCatalog.priceLabel(product), 'product-price'), element('p', `Listing last observed ${date(product.lastSeen)}`, 'hint'));
     if (product.price !== null && product.history.length >= 2) {
       const first = product.history[0].price;
       const change = product.price - first;
       card.append(element('p', change === 0 ? 'Unchanged from first recorded price' : `${format(Math.abs(change))} ${change < 0 ? 'lower' : 'higher'} than first recorded price`, 'price-change'));
     }
     if (product.notes) card.append(element('p', product.notes));
-    const actions = element('div', undefined, 'actions'); const use = element('button', 'Use price', 'primary'); use.disabled = product.price === null;
+    const estimatePrice = product.variant?.price ?? product.price;
+    const actions = element('div', undefined, 'actions'); const use = element('button', 'Use price', 'primary'); use.disabled = estimatePrice === null;
+    if (product.variant) card.append(element('p', `${product.variant.name}: ${format(product.variant.price)} · manually confirmed ${date(product.variant.at)}`, 'hint'));
     if (product.price === null) card.append(element('p', 'No single readable price. Enter your variant’s price in the calculator.', 'hint'));
     use.addEventListener('click', () => {
       if (priceProductId !== product.id) resetCalculator();
       priceProductId = product.id;
       for (const item of $('saved').children) item.classList.toggle('price-selected', item.dataset.productId === priceProductId);
-      $('calculator').elements.price.value = (product.price / 100).toFixed(2);
-      $('price-source').textContent = `${product.title} · observed ${date(product.lastSeen)} · listing price; confirm your variant.`;
+      $('calculator').elements.price.value = (estimatePrice / 100).toFixed(2);
+      $('price-source').textContent = product.variant ? `${product.title} · ${product.variant.name} · manually confirmed ${date(product.variant.at)}; recheck before buying.` : `${product.title} · observed ${date(product.lastSeen)} · listing price; confirm your variant.`;
       hasEstimate = false;
       clearTimeout(estimateTimer);
       validate(false);
@@ -152,9 +154,32 @@
       $('undo-notice').hidden = false; $('undo').focus(); notify('Product removed.');
     }));
     actions.append(use, remove); card.append(actions, historyView(product));
+    if (product.rangeHistory?.length) {
+      const ranges = element('details'); rememberDisclosure(ranges, `${product.id}:ranges`);
+      ranges.append(element('summary', `Listing ranges (${product.rangeHistory.length})`));
+      const entries = element('div', undefined, 'history-table');
+      for (const point of [...product.rangeHistory].reverse()) entries.append(element('p', `${format(point.min)}–${format(point.max)} · ${date(point.at)}`));
+      ranges.append(element('p', 'Ranges are separate from single-price observations; variants can change.', 'hint'), entries); card.append(ranges);
+    }
+    const variantDetails = element('details'); rememberDisclosure(variantDetails, `${product.id}:variant`);
+    variantDetails.append(element('summary', 'Variant for estimates'), element('p', 'Enter the option and price you checked on Shopee. This is a manual estimate reference, not live variant tracking.', 'hint'));
+    const variantForm = element('form');
+    const variantName = element('input'); variantName.name = 'variant-name'; variantName.maxLength = 100; variantName.required = true; variantName.value = product.variant?.name || '';
+    const variantPrice = element('input'); variantPrice.name = 'variant-price'; variantPrice.type = 'number'; variantPrice.min = '0'; variantPrice.max = '1000000'; variantPrice.step = '0.01'; variantPrice.required = true; variantPrice.value = product.variant ? product.variant.price / 100 : '';
+    const nameLabel = element('label', 'Variant name'); nameLabel.append(variantName);
+    const priceLabel = element('label', 'Confirmed variant price (PHP)'); priceLabel.append(variantPrice);
+    const saveVariant = element('button', 'Save variant'); saveVariant.type = 'submit';
+    const clearVariant = element('button', 'Clear variant', 'quiet'); clearVariant.type = 'button'; clearVariant.disabled = !product.variant;
+    variantForm.append(nameLabel, priceLabel, saveVariant, clearVariant);
+    variantForm.addEventListener('submit', event => { event.preventDefault(); action(saveVariant, async () => {
+      board = await request('BUDOL_VARIANT', { id: product.id, variant: { name: variantName.value, price: variantPrice.value } });
+      if (priceProductId === product.id) resetCalculator(); render(); notify('Variant saved for estimates.');
+    }); });
+    clearVariant.addEventListener('click', () => action(clearVariant, async () => { board = await request('BUDOL_VARIANT', { id: product.id, variant: null }); if (priceProductId === product.id) resetCalculator(); render(); notify('Variant cleared.'); }));
+    variantDetails.append(variantForm); card.append(variantDetails);
     const details = element('details'); rememberDisclosure(details, `${product.id}:notes`);
     if (drafts.has(product.id)) details.open = true;
-    details.append(element('summary', 'Collection & notes')); const form = element('form');
+    details.append(element('summary', 'Collection & notes')); const form = element('form', undefined, 'notes-form');
     const draft = drafts.get(product.id) || product;
     const collectionLabel = element('label', 'Collection'); const collection = element('input'); collection.maxLength = 60; collection.value = draft.collection; collection.name = 'collection'; collectionLabel.append(collection);
     collection.setAttribute('list', 'collection-names');
@@ -253,7 +278,7 @@
       const results = await Promise.allSettled(tabs.map(async tab => {
         const result = await chrome.tabs.sendMessage(tab.id, { type: 'BUDOL_GET_PRODUCTS' });
         if (!Array.isArray(result?.products)) throw new Error('Not a Shopee listing');
-        return { id: tab.id, title: result.title || `Shopee tab ${tab.id}`, products: result.products.map(raw => ({ ...BudolCatalog.normalizeProduct(raw), discount: typeof raw.discount === 'number' && Number.isFinite(raw.discount) && raw.discount >= 0 && raw.discount <= 100 ? raw.discount : null })) };
+        return { id: tab.id, title: result.title || `Shopee tab ${tab.id}`, products: result.products.map(raw => ({ ...BudolCatalog.normalizeProduct(raw), observedAt: new Date().toISOString(), discount: typeof raw.discount === 'number' && Number.isFinite(raw.discount) && raw.discount >= 0 && raw.discount <= 100 ? raw.discount : null })) };
       }));
       if (revision !== pageRevision) return;
       const sources = results.filter(r => r.status === 'fulfilled').map(r => r.value);
