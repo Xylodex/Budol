@@ -192,6 +192,14 @@ test('installed extension highlights listings and saves popup controls', async (
     await expect(board.getByLabel('Item price (PHP)', { exact: true })).toHaveValue('');
     await expect(board.locator('#estimate strong')).toHaveCount(0);
     await expect(board.locator('#saved .price-selected')).toHaveCount(0);
+    await board.locator('#candidates [data-compare-id]').nth(0).click();
+    await board.locator('#candidates [data-compare-id]').nth(1).click();
+    await expect(board.locator('.comparison-card')).toHaveCount(2);
+    const comparison = board.locator('.comparison-card').first();
+    await expect(comparison.locator('.comparison-total')).toContainText('incomplete');
+    await comparison.getByLabel('Shipping (PHP)', { exact: true }).fill('40');
+    await comparison.getByLabel('Eligible voucher amount (PHP)', { exact: true }).fill('20');
+    await expect(comparison.locator('.comparison-total')).toContainText('₱269.00');
     await board.getByRole('link', { name: 'Deals', exact: true }).click();
     await board.evaluate(() => window.scrollTo(0, 0));
     await board.screenshot({ path: testInfo.outputPath('budol-board.png'), fullPage: true });
