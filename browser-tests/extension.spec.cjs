@@ -170,9 +170,16 @@ test('installed extension highlights listings and saves popup controls', async (
     await board.getByLabel('Notes', { exact: true }).fill('Compare before buying <script>');
     await board.getByRole('button', { name: 'Save details' }).click();
 
+    await board.getByText('Set a price watch', { exact: true }).click();
+    await board.getByLabel('Target price (PHP)', { exact: true }).fill('250');
+    await board.getByRole('button', { name: 'Save watch', exact: true }).click();
+    await expect(board.locator('#saved')).toContainText('Price watch · active');
     await shop.locator('#card-80 .amount').evaluate(node => { node.textContent = '₱249'; });
     await expect.poll(async () => board.evaluate(async () => (await chrome.storage.local.get('budolBoard')).budolBoard.products[0].price)).toBe(24900);
     await board.reload();
+    await board.locator('#alerts-panel > summary').click();
+    await expect(board.locator('#alerts')).toContainText('Target price reached');
+    await expect(board.locator('#alerts')).toContainText('Discord: Off');
     await expect(board.locator('#saved')).toContainText('₱249.00');
     await expect(board.locator('#saved')).toContainText('Compare before buying <script>');
     await board.getByText('Price observations (2)', { exact: true }).click();

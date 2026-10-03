@@ -502,6 +502,7 @@
     $('deal-threshold').value = discountThreshold;
     try {
       board = await request('BUDOL_BOARD_GET'); render(); await renderAlerts();
+      if (location.hash === '#alerts-panel') $('alerts-panel').open = true;
       $('source-panel').open = true;
       await readPage();
     } catch (error) { $('saved').setAttribute('aria-busy', 'false'); $('saved').textContent = 'Your board could not be loaded. Reload this page to try again.'; notify(error.message, true); }

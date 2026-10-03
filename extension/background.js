@@ -2,6 +2,9 @@ importScripts('catalog.js');
 importScripts('discord.js', 'discord-background.js');
 let pending = Promise.resolve();
 const empty = () => ({ version: 1, products: [] });
+chrome.notifications?.onClicked?.addListener(id => {
+  if (id.startsWith('shopee:')) chrome.tabs.create({ url: chrome.runtime.getURL('board.html#alerts-panel') });
+});
 
 async function handle(message, sender) {
   const extensionPage = !sender.tab?.url?.startsWith('https:') && sender.url?.startsWith(chrome.runtime.getURL(''));
