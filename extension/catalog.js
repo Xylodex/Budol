@@ -51,6 +51,68 @@
     return { ratingValue, soldValue, soldText, seller: pick('[data-sqe="shop-name"], [data-testid="shop-name"]'), location: pick('[data-sqe="location"], [data-testid="location"]') };
   }
 
+  const OFFER_NAMES = Object.freeze({ voucher: 'Voucher', shipping: 'Shipping offer', cashback: 'Cashback / Coins', bundle: 'Bundle deal', addon: 'Add-on deal', flash: 'Flash deal', payment: 'Payment offer', channel: 'Live / Video offer', campaign: 'Campaign offer' });
+  function parseOffer(raw, scope = 'item-card') {
+    if (typeof raw !== 'string' || raw.length > 400) return null;
+    const text = raw.replace(/\s+/g, ' ').trim();
+    let kind = null;
+    if (/cashback|\bcoins?\s*(?:reward|back|cashback)|\b(?:earn|get)\s+(?:up to\s+)?\d+\s*coins?/i.test(text)) kind = 'cashback';
+    else if (/free shipping|shipping (?:voucher|discount|offer)|(?:voucher|discount) (?:on|for) shipping/i.test(text)) kind = 'shipping';
+    else if (/spaylater|shopeepay|\bbank\b.*(?:voucher|off|discount)|(?:voucher|off|discount).*\b(?:bank|credit card|payment)\b/i.test(text)) kind = 'payment';
+    else if (/\b(?:live|video)\b.*(?:voucher|off|discount|only)|(?:voucher|off|discount).*\b(?:live|video)\b/i.test(text)) kind = 'channel';
+    else if (/\badd[- ]on (?:deal|discount|offer)|buy.*(?:free gift|gift with purchase)/i.test(text)) kind = 'addon';
+    else if (/bundle deal|\b(?:buy|any)\s+\d+.*(?:off|save|discount|get)|buy (?:one|\d+) get (?:one|\d+)/i.test(text)) kind = 'bundle';
+    else if (/flash (?:deal|sale)/i.test(text)) kind = 'flash';
+    else if (/voucher|coupon/i.test(text)) kind = 'voucher';
+    else if (/^(?:up to\s+\d+(?:\.\d+)?%\s*off|\d{1,2}\.\d{1,2}\s+.*sale)/i.test(text)) kind = 'campaign';
+    if (!kind) return null;
+    const amount = '((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{1,2})?)(?![\\d.,])';
+    const readAmount = prefix => {
+      const match = text.match(new RegExp(prefix + '\\s*[:.]?\\s*(?:₱|PHP)\\s*' + amount, 'i'));
+      return match ? money(match[1].replaceAll(',', '')) : null;
+    };
+    const minimum = readAmount('(?:min(?:imum)?\\.?\\s*(?:spend|purchase))');
+    const cap = readAmount('(?:capped at|cap(?:ped)?|max(?:imum)?\\.?\\s*(?:discount|cashback))');
+    const restrictions = [];
+    for (const [pattern, label] of [[/new user|first (?:order|purchase)/i, 'New users / first order'], [/\bapp[- ]only|on (?:the )?app/i, 'App only'], [/\bclaimed|claim (?:this|now|voucher)/i, 'Claim required'], [/selected (?:items|products|shops|sellers)/i, 'Selected items or shops'], [/limited redemption|while stocks last|limited stock/i, 'Limited availability']]) if (pattern.test(text)) restrictions.push(label);
+    const unavailable = /\bexpired|fully redeemed|not applicable|not eligible|unavailable|starts? (?:in|on|at)\b/i.test(text);
+    return { kind, text, scope: scope === 'product-page' ? scope : 'item-card', minimum, cap, restrictions, status: unavailable ? 'Check availability' : 'Eligibility unverified' };
+  }
+  function normalizeOffers(raw) {
+    if (!Array.isArray(raw)) return [];
+    const offers = raw.slice(0, 24).map(value => parseOffer(value?.text, value?.scope)).filter(Boolean);
+    return [...new Map(offers.map(offer => [`${offer.kind}:${offer.text.toLowerCase()}`, offer])).values()].slice(0, 12);
+  }
+  function readOffers(root, scope = 'item-card') {
+    const texts = [];
+    const excluded = '[data-sqe="name"], [class*="line-clamp-2"], h1, script, style, template, [data-budol-ignore]';
+    const textOf = node => [...node.childNodes].map(child => child.textContent).join(' ').replace(/\s+/g, ' ').trim();
+    const combinedOffers = node => [...node.children].filter(child => parseOffer(textOf(child), scope)).length > 1;
+    for (const node of root.querySelectorAll('span, div, small, p, li, [aria-label]')) {
+      if (!visible(node) || node.closest(excluded) || combinedOffers(node) || node.querySelector('h1, [data-sqe="name"], [class*="line-clamp-2"], input, [aria-label="Product card"]')) continue;
+      if (scope === 'product-page' && node.closest('[aria-label="Product card"], [data-sqe="item"], .shopee-item-card')) continue;
+      let text = node.getAttribute('aria-label') || textOf(node);
+      if (!parseOffer(text, scope)) continue;
+      for (let parent = node.parentElement, depth = 0; parent && parent !== root && depth < 2; parent = parent.parentElement, depth++) {
+        if (parent.querySelector('img, h1, input, [data-sqe="name"], [class*="line-clamp-2"], [aria-label="promotion price"], [aria-label="Product card"]')) break;
+        const combined = textOf(parent);
+        if (combined.length > 280 || combinedOffers(parent) || !parseOffer(combined, scope)) break;
+        // Keep terms adjacent to one offer, not a container containing unrelated offers.
+        if (parseOffer(combined, scope).kind !== parseOffer(text, scope).kind) break;
+        text = combined;
+      }
+      texts.push({ text, scope });
+    }
+    const offers = normalizeOffers(texts);
+    return offers.filter(offer => !offers.some(other => other !== offer && other.kind === offer.kind && other.text.length > offer.text.length && other.text.toLowerCase().includes(offer.text.toLowerCase())));
+  }
+  function offerExplanation(offer, product) {
+    const effect = { voucher: 'Checkout discount if eligible.', shipping: 'Shipping benefit; does not reduce the item price.', cashback: 'Reward for later use; does not reduce this payment.', bundle: 'Requires the qualifying item combination or quantity.', addon: 'Requires a qualifying main item or spend.', flash: 'Limited-time listing offer; check the active slot and stock.', payment: 'Requires the stated payment method.', channel: 'Requires the stated Live or Video purchase route.', campaign: 'Campaign claim; item participation and terms need checking.' }[offer.kind];
+    const maximum = product?.priceRange?.max ?? product?.price;
+    const minimum = offer.minimum !== null ? `Minimum spend ${format(offer.minimum)}${maximum != null && maximum < offer.minimum ? '; one item at the shown price is below this' : ''}.` : '';
+    return [effect, minimum, offer.cap !== null ? `Benefit capped at ${format(offer.cap)}.` : '', ...offer.restrictions, offer.status + '.'].filter(Boolean).join(' ');
+  }
+
   function visible(element) {
     if (element.closest('script, style, template, [hidden], [aria-hidden="true"], [data-budol-ignore], del, s')) return false;
     for (let node = element; node; node = node.parentElement) {
@@ -68,12 +130,14 @@
     const title = clean(titleNode?.textContent || card.querySelector('img[alt]')?.getAttribute('alt'), 240) || 'Shopee product';
     // Prefer Shopee's explicit accessible price label; never use discount/cashback numbers.
     const marker = [...card.querySelectorAll('[aria-label="promotion price"], [aria-label="price"]')].find(visible);
-    let price = null, priceRange = null;
+    let price = null, priceRange = null, priceNote = '';
     if (marker) {
       const parent = marker.parentElement.cloneNode(true);
       parent.querySelectorAll('del, s, [hidden], [aria-hidden="true"]').forEach(node => node.remove());
       price = parsePrice(parent.textContent);
       priceRange = parseRange(parent.textContent);
+      const context = marker.parentElement.textContent.replace(/\s+/g, ' ').trim();
+      if (/after (?:voucher|coupon)|with (?:voucher|coupon|spaylater|shopeepay)|(?:live|video)[- ]only price/i.test(context)) { price = null; priceRange = null; priceNote = 'Shown price requires an offer; confirm eligibility on Shopee.'; }
     } else {
       const prices = [...card.querySelectorAll('span, div')]
         .filter(node => visible(node) && /₱|PHP/i.test(node.textContent) &&
@@ -85,7 +149,7 @@
       if (price === null && new Set(ranges.map(r => JSON.stringify(r))).size === 1 && prices.every(p => p === null)) priceRange = ranges[0];
     }
     if (priceRange?.min === priceRange?.max && priceRange) { price = priceRange.min; priceRange = null; }
-    return { ...identity, title, price, priceRange, ...metadata(card), discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
+    return { ...identity, title, price, priceRange, priceNote, offers: readOffers(card), ...metadata(card), discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
   }
 
   function extractProducts(root) {
@@ -110,7 +174,7 @@
     if (value.price !== null && (!Number.isSafeInteger(value.price) || value.price < 0 || value.price > MAX_MONEY)) throw new Error('Invalid product price.');
     const range = value.priceRange;
     if (range != null && (![range.min, range.max].every(n => Number.isSafeInteger(n) && n >= 0 && n <= MAX_MONEY) || range.min >= range.max || value.price !== null)) throw new Error('Invalid listing price range.');
-    return { ...identity, title: clean(value.title, 240) || 'Shopee product', price: value.price, priceRange: range ? { min: range.min, max: range.max } : null, currency: 'PHP', scope: 'listing',
+    return { ...identity, title: clean(value.title, 240) || 'Shopee product', price: value.price, priceRange: range ? { min: range.min, max: range.max } : null, priceNote: clean(value.priceNote, 140), offers: normalizeOffers(value.offers), currency: 'PHP', scope: 'listing',
       ratingValue: typeof value.ratingValue === 'number' && value.ratingValue >= 0 && value.ratingValue <= 5 ? value.ratingValue : null,
       soldValue: Number.isSafeInteger(value.soldValue) && value.soldValue >= 0 && value.soldValue <= 1000000000 ? value.soldValue : null,
       soldText: clean(value.soldText, 80), seller: clean(value.seller, 160), location: clean(value.location, 160) };
@@ -242,5 +306,5 @@
       (filters.rating === null || (product.ratingValue != null && product.ratingValue >= filters.rating)) &&
       (filters.sold === null || (product.soldValue != null && product.soldValue >= filters.sold));
   }
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, normalizeAlerts, watchMatches, dealsCsv });
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, normalizeAlerts, watchMatches, dealsCsv, OFFER_NAMES, parseOffer, readOffers, normalizeOffers, offerExplanation });
 })();
