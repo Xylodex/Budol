@@ -17,7 +17,18 @@
       <summary>Deals from Shopee</summary>
       <div class="section-heading source-heading"><label class="source-tab-label">Shopee tab<select id="source-tab" aria-describedby="page-state"><option value="">Finding open tabs…</option></select></label><button id="refresh" type="button">Refresh products</button></div>
       <div class="deal-controls"><label>Discount at least (%)<input id="deal-threshold" type="number" min="0" max="100" step="0.1" value="50" aria-describedby="deal-help"></label><label class="inline-check"><input id="matching-only" type="checkbox" checked>Only matching discounts</label></div>
-      <p id="deal-help" class="hint">Highest advertised discount first. Discounts are Shopee’s claims, not verified savings.</p><p id="deal-count" role="status"></p>
+      <p id="deal-help" class="hint">Highest advertised discount first. Discounts are Shopee’s claims, not verified savings.</p>
+      <details class="deal-filter-panel"><summary>Filter products <span id="deal-filter-count"></span></summary>
+        <form id="deal-filters" class="filters" novalidate>
+          <label>Include every keyword<input name="required" placeholder="keyboard, wireless" maxlength="300"></label>
+          <label>Exclude keywords<input name="excluded" placeholder="case, replacement" maxlength="300"></label>
+          <label>Maximum price (PHP)<input name="budget" type="number" min="0" max="1000000" step="0.01"></label>
+          <label>Price ranges<select name="range"><option value="any">Starting price within budget</option><option value="all">Entire range within budget</option></select></label>
+          <label>Minimum rating<input name="rating" type="number" min="0" max="5" step="0.1"></label>
+          <label>Minimum sold<input name="sold" type="number" min="0" max="1000000000" step="1"></label>
+          <button type="reset">Clear product filters</button>
+        </form><p class="hint">Separate keywords with commas. Products with unknown price, rating, or sales won’t pass that numeric filter.</p><p id="deal-filter-error" role="alert"></p>
+      </details><p id="deal-count" role="status"></p>
       <p id="page-state" role="status">Reading your Shopee tab…</p><div id="candidates" class="candidates" aria-busy="true"></div>
       <button id="more-candidates" type="button" hidden>Show more products</button>
     </details>

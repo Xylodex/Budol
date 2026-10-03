@@ -58,8 +58,15 @@
     anchor.href = product.url; anchor.target = '_blank'; anchor.rel = 'noreferrer';
     return anchor;
   }
+  function filteredCandidates() {
+    const filters = BudolCatalog.dealFilters(Object.fromEntries(new FormData($('deal-filters'))));
+    $('deal-filter-count').textContent = `(${[filters.required.length > 0, filters.excluded.length > 0, filters.budget !== null, filters.rating !== null, filters.sold !== null].filter(Boolean).length} active)`;
+    return candidates.filter(p => BudolCatalog.matchesDeal(p, filters) && (!$('matching-only').checked || (p.discount !== null && p.discount >= discountThreshold))).sort((a, b) => (b.discount ?? -1) - (a.discount ?? -1));
+  }
   function renderCandidates() {
-    const shown = candidates.filter(p => !$('matching-only').checked || (p.discount !== null && p.discount >= discountThreshold)).sort((a, b) => (b.discount ?? -1) - (a.discount ?? -1));
+    let shown = [];
+    try { shown = filteredCandidates(); $('deal-filter-error').textContent = ''; }
+    catch (error) { $('deal-filter-error').textContent = error.message; }
     $('candidates').replaceChildren();
     $('deal-count').textContent = `${shown.length} ${$('matching-only').checked ? `matching ${discountThreshold}%+` : 'loaded'} products`;
     for (const product of shown.slice(0, candidateLimit)) {
@@ -79,7 +86,7 @@
       card.append(button); $('candidates').append(card);
     }
     if (candidates.length && !shown.length) {
-      const empty = element('p', 'No loaded products meet this threshold. Lower it, scroll on Shopee and refresh, or show all products.', 'hint');
+      const empty = element('p', 'No loaded products match. Adjust the product filters or discount threshold, or scroll on Shopee and refresh.', 'hint');
       const all = element('button', 'Show all loaded products');
       all.addEventListener('click', () => { $('matching-only').checked = false; renderCandidates(); $('matching-only').focus(); });
       $('candidates').append(empty, all);
@@ -87,6 +94,9 @@
     $('more-candidates').hidden = shown.length <= candidateLimit;
     $('more-candidates').textContent = `Show ${Math.min(6, shown.length - candidateLimit)} more products`;
   }
+  $('deal-filters').addEventListener('input', () => { candidateLimit = 6; renderCandidates(); });
+  $('deal-filters').addEventListener('submit', event => event.preventDefault());
+  $('deal-filters').addEventListener('reset', () => { setTimeout(() => { candidateLimit = 6; renderCandidates(); }, 0); });
   function historyView(product) {
     const details = element('details');
     rememberDisclosure(details, `${product.id}:history`);

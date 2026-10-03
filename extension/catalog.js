@@ -177,5 +177,25 @@
 
   const format = cents => cents == null ? 'Price unavailable' : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
   const priceLabel = product => product.priceRange ? `${format(product.priceRange.min)}–${format(product.priceRange.max)} · varies by variant` : format(product.price);
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel });
+  function dealFilters(values = {}) {
+    const terms = value => String(value || '').toLocaleLowerCase().split(',').map(s => s.trim()).filter(Boolean).slice(0, 30);
+    const numeric = (value, max, integer = false) => {
+      if (value === '' || value == null) return null;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0 || n > max || (integer && !Number.isInteger(n))) throw new Error('Check the filter amounts.');
+      return n;
+    };
+    const budget = values.budget === '' || values.budget == null ? null : money(values.budget);
+    if (budget === null && values.budget != null && values.budget !== '') throw new Error('Enter a budget from 0 to 1,000,000 with up to two decimals.');
+    return { required: terms(values.required), excluded: terms(values.excluded), budget, range: values.range === 'all' ? 'all' : 'any', rating: numeric(values.rating, 5), sold: numeric(values.sold, 1000000000, true) };
+  }
+  function matchesDeal(product, filters) {
+    const title = product.title.toLocaleLowerCase();
+    if (!filters.required.every(term => title.includes(term)) || filters.excluded.some(term => title.includes(term))) return false;
+    const price = product.priceRange ? product.priceRange[filters.range === 'all' ? 'max' : 'min'] : product.price;
+    return (filters.budget === null || (price != null && price <= filters.budget)) &&
+      (filters.rating === null || (product.ratingValue != null && product.ratingValue >= filters.rating)) &&
+      (filters.sold === null || (product.soldValue != null && product.soldValue >= filters.sold));
+  }
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal });
 })();
