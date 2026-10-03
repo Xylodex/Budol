@@ -11,3 +11,13 @@ Scope: implement the five recommended additions from the GitHub review. Keep dis
 Verification: meaningful parser/filter/migration/alert/delivery/CSV tests, installed Chromium journeys for the new controls, desktop/narrow screenshots, syntax checks, and packaged-file verification including exclusion of private webhook setup. Test Discord with mocks; do not post real test messages.
 
 Release: bump to 1.9.0, update usage/privacy/permissions documentation, package public ZIP and preconfigured local unpacked folder. Record completed behavior and practical limits after verification.
+
+## Implementation status
+
+- [Issue 1](https://github.com/Xylodex/Budol/issues/1): implemented in [PR 6](https://github.com/Xylodex/Budol/pull/6).
+- [Issue 2](https://github.com/Xylodex/Budol/issues/2): implemented in [PR 7](https://github.com/Xylodex/Budol/pull/7).
+- [Issue 3](https://github.com/Xylodex/Budol/issues/3): implemented in [PR 8](https://github.com/Xylodex/Budol/pull/8).
+- [Issue 4](https://github.com/Xylodex/Budol/issues/4): implemented in [PR 9](https://github.com/Xylodex/Budol/pull/9).
+- [Issue 5](https://github.com/Xylodex/Budol/issues/5): CSV export and 1.9 release verification.
+
+Practical limits: listing metadata depends on readable Shopee markup; unknown evidence remains unknown. Watches run from browsing observations, not unattended scraping. Comparison is a tab-local snapshot and resets on reload. Variant references are manually entered and dated. Discord failures are reported without automatic retries. Imported watches are paused with Discord disabled.

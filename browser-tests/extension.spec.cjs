@@ -1,6 +1,6 @@
 const { test, expect, chromium } = require('@playwright/test');
 const { resolve, dirname, basename } = require('node:path');
-const { mkdtemp, rm, cp } = require('node:fs/promises');
+const { mkdtemp, rm, cp, readFile } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 
 const fixture = `<!doctype html><html><head><meta charset="utf-8"><title>Shopee test listing</title><style>
@@ -112,6 +112,17 @@ test('installed extension highlights listings and saves popup controls', async (
     board.on('pageerror', error => errors.push(error.message));
     await expect(board.locator('#candidates .candidate')).toHaveCount(2);
     await expect(board.locator('#candidates .candidate').first()).toContainText('80% off');
+    await board.locator('.deal-filter-panel > summary').click();
+    await board.getByLabel('Include every keyword', { exact: true }).fill('product 4');
+    await expect(board.locator('#candidates .candidate')).toHaveCount(1);
+    const csvEvent = board.waitForEvent('download');
+    await board.getByRole('button', { name: 'Export filtered deals (CSV)', exact: true }).click();
+    const csvDownload = await csvEvent; const csvPath = testInfo.outputPath('deals.csv'); await csvDownload.saveAs(csvPath);
+    const csv = await readFile(csvPath, 'utf8');
+    expect(csv).toContain('Example product 4'); expect(csv).not.toContain('Example product 3'); expect(csv).toContain('https://shopee.ph/product/123/4');
+    await board.getByRole('button', { name: 'Clear product filters', exact: true }).click();
+    await expect(board.locator('#candidates .candidate')).toHaveCount(2);
+    await board.locator('.deal-filter-panel > summary').click();
     await board.locator('#deal-threshold').fill('80');
     await board.locator('#deal-threshold').press('Tab');
     await expect(board.locator('#candidates .candidate')).toHaveCount(1);
