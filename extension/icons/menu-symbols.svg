@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <symbol id="discount" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 3h9l9 9-9 9-9-9Z"/><circle cx="7" cy="7" r="1"/><path d="m10 16 6-6"/><circle cx="11" cy="11" r="1"/><circle cx="15" cy="15" r="1"/></g></symbol>
+  <symbol id="bag" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 7h16l1 13H3Zm4 0V5a4 4 0 0 1 8 0v2M3 11l9 4 9-4"/><path d="M10 12h4v5h-4Z"/></g></symbol>
+  <symbol id="calculator" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 10h2m4 0h2M8 14h2m4 0h2M8 18h2m4 0h2"/></g></symbol>
+  <symbol id="archive" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 5h18v5H3Zm2 5v11h14V10M9 14h6M8 2h8"/></g></symbol>
+</svg>

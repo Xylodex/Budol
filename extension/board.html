@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Budol — Deals</title><link rel="stylesheet" href="board.css"><link rel="stylesheet" href="game-ui.css">
+  <script src="catalog.js" defer></script><script src="board.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to your board</a>
+  <header><div class="brand"><img src="icons/budol-crest.svg" width="40" height="40" alt=""><h1>Budol</h1></div><div class="header-actions"><a class="button-link" href="https://shopee.ph" target="_blank" rel="noreferrer">Open Shopee ↗</a></div></header>
+  <main id="main" tabindex="-1">
+    <nav class="section-nav" aria-label="Budol sections"><a href="#source-panel" id="find-products" aria-current="location"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#discount"></use></svg>Deals</a><a href="#saved-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#bag"></use></svg>Saved products <span id="nav-count">0</span></a><a href="#calculator-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#calculator"></use></svg>Calculator</a><a href="#backup-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#archive"></use></svg>Backups</a></nav>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <p id="failure" role="alert" hidden></p>
+    <div id="undo-notice" class="undo-notice" hidden><span id="undo-message"></span><button id="undo" type="button">Undo removal</button></div>
+    <details class="panel source-panel" id="source-panel" open>
+      <summary>Deals from Shopee</summary>
+      <div class="section-heading source-heading"><label class="source-tab-label">Shopee tab<select id="source-tab" aria-describedby="page-state"><option value="">Finding open tabs…</option></select></label><button id="refresh" type="button">Refresh products</button></div>
+      <div class="deal-controls"><label>Discount at least (%)<input id="deal-threshold" type="number" min="0" max="100" step="0.1" value="50" aria-describedby="deal-help"></label><label class="inline-check"><input id="matching-only" type="checkbox" checked>Only matching discounts</label></div>
+      <p id="deal-help" class="hint">Highest advertised discount first. Discounts are Shopee’s claims, not verified savings.</p><p id="deal-count" role="status"></p>
+      <p id="page-state" role="status">Reading your Shopee tab…</p><div id="candidates" class="candidates" aria-busy="true"></div>
+      <button id="more-candidates" type="button" hidden>Show more products</button>
+    </details>
+    <div class="workspace">
+      <section class="panel saved-panel" id="saved-panel" aria-labelledby="saved-heading">
+        <div class="section-heading"><h2 id="saved-heading" tabindex="-1">Saved products <span id="count">0</span></h2></div>
+        <div class="filters" id="saved-filters"><label>Search products<input id="search" type="search" placeholder="Product, collection, or note"></label><label id="collection-filter">Collection<select id="collection"><option value="">All collections</option></select></label><label>Sort by<select id="sort"><option value="recent">Recently saved</option><option value="price">Price: low to high</option><option value="title">Name: A–Z</option></select></label></div>
+        <div class="results-line"><p id="result-count" role="status"></p><button type="button" id="clear-filters" hidden>Clear filters</button></div>
+        <p class="hint price-note">Listing prices can vary by variant. History updates when you visit Shopee.</p><datalist id="collection-names"></datalist>
+        <div id="saved" aria-busy="true"><p class="empty-state">Loading saved products…</p></div>
+        <details class="backup" id="backup-panel"><summary>Backups & storage</summary><p>Keep a copy before uninstalling. Up to 200 products and 90 observations per product stay on this browser.</p><button id="export" type="button">Export backup</button><div class="restore-backup"><h3>Restore a backup</h3><p>Preview new products before importing. Existing products keep their notes and history.</p><label>Budol JSON backup<input id="import-file" type="file" accept="application/json,.json"></label><p id="import-preview" role="status"></p><button id="import" type="button" disabled>Import new products</button></div></details>
+      </section>
+      <aside class="panel calculator" id="calculator-panel" aria-labelledby="calculator-heading">
+        <h2 id="calculator-heading">Cost calculator</h2>
+        <p id="price-source" class="price-source">No product selected · enter a price below</p>
+        <form id="calculator" novalidate>
+          <div class="fields"><label>Item price (PHP)<input id="calc-price" name="price" type="number" min="0" max="1000000" step="0.01" required placeholder="0.00" aria-describedby="calc-price-error"><span class="field-error" id="calc-price-error"></span></label><div><label for="calc-quantity">Quantity</label><div class="quantity-control"><button type="button" id="quantity-minus" aria-label="Decrease quantity">−</button><input id="calc-quantity" aria-label="Quantity" name="quantity" type="number" min="1" max="999" step="1" value="1" required aria-describedby="calc-quantity-error"><button type="button" id="quantity-plus" aria-label="Increase quantity">+</button></div><span class="field-error" id="calc-quantity-error"></span></div></div>
+          <label>Shipping (PHP)<input id="calc-shipping" name="shipping" type="number" min="0" max="1000000" step="0.01" required placeholder="Enter amount" aria-describedby="shipping-help calc-shipping-error"><span class="field-error" id="calc-shipping-error"></span></label><p class="hint" id="shipping-help">Enter 0 only if shipping is free.</p>
+          <details id="voucher-options" class="voucher-options"><summary>Voucher <span id="voucher-summary">Optional</span></summary>
+          <fieldset><legend>One eligible voucher</legend><p class="hint">Enter either a fixed amount or a percentage. Confirm eligibility and stacking on Shopee.</p>
+          <label for="voucher-type">Type</label><select id="voucher-type" name="voucherType"><option value="fixed">Fixed amount</option><option value="percent">Percentage</option></select>
+          <label id="discount-label">Amount off (PHP)<input name="discount" type="number" min="0" max="1000000" step="0.01" value="0" required></label>
+          <div id="percentage-fields" hidden><label>Percent off<input name="percent" type="number" min="0" max="100" step="0.01" value="0"></label><label>Maximum discount (PHP, optional)<input name="cap" type="number" min="0" max="1000000" step="0.01" placeholder="No cap"></label></div>
+          <label>Minimum item subtotal (PHP)<input name="minimum" type="number" min="0" max="1000000" step="0.01" value="0" required></label></fieldset>
+          </details>
+          <button class="primary" type="submit">Calculate estimate</button><button class="quiet" id="reset-calculator" type="button">Clear calculator</button>
+        </form>
+        <div id="estimate" role="status" aria-live="polite" aria-atomic="true"><p>Enter a price and shipping to calculate the total.</p></div>
+        <p class="hint" id="estimate-help">After your first estimate, valid changes update the total automatically.</p>
+        <p class="hint">Confirm your variant, voucher eligibility, shipping, and fees at Shopee checkout.</p>
+      </aside>
+    </div>
+  </main>
+  <footer>Data is stored in this browser.<span>Budol 1.8.0</span></footer>
+</body>
+</html>

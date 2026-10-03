@@ -1,0 +1,13 @@
+# Budol 1.9 implementation plan
+
+Scope: implement the five recommended additions from the GitHub review. Keep discovery first, extend the existing local extension, and retain the blue menu treatment. No external repository code will be copied.
+
+1. **Product evidence and ranges.** Parse explicit PHP ranges conservatively; retain unknown/conflicting prices as unknown. Add optional numeric rating/sold and seller/origin evidence. Preserve legacy single-price history and keep range history separate. Display ranges in Deals, saved products, comparison, CSV and Discord. Add a manually confirmed variant name/price for estimates, dated separately from observed listing data; never silently substitute the cheapest variant.
+2. **Deal filters.** Add required words, excluded words, maximum PHP price, optional minimum rating/sold, and a choice of any/all variants within budget. Unknown fields fail active numeric conditions. Show active filter count, validation and clear controls. Export uses exactly the filtered set, including results beyond the first six shown.
+3. **Watch alerts.** Saved products can watch a target price or a new observed low, pause/resume, and explicitly opt into Discord. Trigger only on later, readable single listing prices observed while browsing. Never compare a range minimum with a single-price history. Persist a bounded local alert inbox and cooldown state; browser notifications link back to the board. Discord delivery is claimed before sending, with no automatic retries after uncertain delivery. Imports must not silently enable automatic external posting.
+4. **Comparison.** Select up to four products from Deals or Saved. Show 2–4 cards with range/single price, selected variant, observed low, rating/sold, seller/origin and observation time. Each has explicit price, shipping and voucher inputs for a one-item estimate; unknown shipping stays unknown. Selection remains usable after filtering and sources change. Provide remove/clear and keyboard access.
+5. **CSV.** Export filtered deals as UTF-8 CSV with canonical URL, PHP prices/ranges, advertised discount, optional metadata and capture time. Escape quotes/newlines and neutralize formula-leading text. Keep JSON backups separate and compatible.
+
+Verification: meaningful parser/filter/migration/alert/delivery/CSV tests, installed Chromium journeys for the new controls, desktop/narrow screenshots, syntax checks, and packaged-file verification including exclusion of private webhook setup. Test Discord with mocks; do not post real test messages.
+
+Release: bump to 1.9.0, update usage/privacy/permissions documentation, package public ZIP and preconfigured local unpacked folder. Record completed behavior and practical limits after verification.

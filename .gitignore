@@ -1,0 +1,8 @@
+node_modules/
+dist/
+artifacts/
+*.log
+**/discord-local.json
+K.zip
+.env
+.env.*

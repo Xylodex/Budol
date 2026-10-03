@@ -1,0 +1,20 @@
+[data-budol-match] {
+  outline: 3px solid #165c9c !important;
+  outline-offset: -3px !important;
+  box-shadow: 0 0 0 3px #a8e9ff !important;
+}
+
+[data-budol-badge] {
+  background-color: #165c9c !important;
+  color: #ffffff !important;
+  border-radius: 3px !important;
+}
+
+[data-budol-muted] {
+  opacity: 0.55 !important;
+  filter: none !important;
+}
+
+@media (forced-colors: active) {
+  [data-budol-match] { outline-color: Highlight !important; }
+}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Budol</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="game-ui.css">
+  <script src="common.js" defer></script>
+  <script src="popup.js" defer></script>
+</head>
+<body class="popup">
+  <header>
+    <img src="icons/budol-crest.svg" alt="" width="38" height="38">
+    <div><h1>Budol</h1><p>Shopee Philippines</p></div>
+    <button id="open-board" type="button" aria-label="View discounted products">View deals ↗</button>
+  </header>
+
+  <main>
+    <section class="settings" aria-label="Highlight settings">
+      <div class="toggle-row">
+        <label for="enabled"><strong>Discount filter</strong><span id="enabled-description">Mark products meeting your discount</span></label>
+        <input id="enabled" class="switch" type="checkbox" role="switch" aria-describedby="enabled-description" disabled>
+      </div>
+      <div class="toggle-row">
+        <label for="focus"><strong>Dim other products</strong><span id="focus-description">Fade products without a matching discount</span></label>
+        <input id="focus" class="switch" type="checkbox" role="switch" aria-describedby="focus-description" disabled>
+      </div>
+      <div class="threshold-heading">
+        <label for="threshold">Discount at least</label>
+        <div class="number-field"><input id="threshold" type="number" min="0" max="100" step="0.1" value="50" inputmode="decimal" aria-describedby="threshold-help error" disabled><span>%</span></div>
+      </div>
+      <input id="threshold-range" type="range" min="0" max="100" step="1" value="50" aria-label="Discount threshold percentage" disabled>
+      <div class="range-labels" aria-hidden="true"><span>0%</span><span>50%</span><span>100%</span></div>
+      <p id="threshold-help" class="help"><span id="boundary">50%</span> off and above will be highlighted.</p>
+      <p id="error" class="error" role="alert" hidden></p>
+    </section>
+
+    <section class="page-status" aria-label="Current page" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <div><strong id="status-title">Checking this tab...</strong><p id="status-detail">Your settings apply to Shopee Philippines.</p></div>
+    </section>
+  </main>
+
+  <footer><span id="save-status" role="status">Loading settings...</span><a href="options.html" target="_blank">Discord settings</a></footer>
+</body>
+</html>
