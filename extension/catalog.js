@@ -178,6 +178,22 @@
 
   const format = cents => cents == null ? 'Price unavailable' : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
   const priceLabel = product => product.priceRange ? `${format(product.priceRange.min)}–${format(product.priceRange.max)} · varies by variant` : format(product.price);
+  function dealsCsv(products) {
+    const cell = value => {
+      let text = value == null ? '' : String(value);
+      text = text.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+      if (/^\s*[=+@-]/u.test(text) || /^[\t\r\n]/.test(text)) text = "'" + text;
+      return '"' + text.replaceAll('"', '""') + '"';
+    };
+    const amount = value => value == null ? '' : (value / 100).toFixed(2);
+    const rows = [['Title', 'URL', 'Currency', 'Listing price', 'Range minimum', 'Range maximum', 'Advertised discount percent', 'Rating', 'Sold count', 'Sold label', 'Seller', 'Ships from', 'Observed at (UTC)']];
+    for (const raw of products) {
+      const p = normalizeProduct(raw);
+      const at = raw.observedAt || raw.lastSeen;
+      rows.push([p.title, p.url, 'PHP', amount(p.price), amount(p.priceRange?.min), amount(p.priceRange?.max), typeof raw.discount === 'number' && raw.discount >= 0 && raw.discount <= 100 ? raw.discount : '', p.ratingValue, p.soldValue, p.soldText, p.seller, p.location, typeof at === 'string' && Number.isFinite(Date.parse(at)) ? new Date(at).toISOString() : '']);
+    }
+    return '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
+  }
   function normalizeWatch(raw) {
     if (!['target', 'low'].includes(raw?.mode) || (raw.mode === 'target' && (!Number.isSafeInteger(raw.target) || raw.target < 0 || raw.target > MAX_MONEY))) throw new Error('Enter a valid watch target.');
     const timestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
@@ -210,5 +226,5 @@
       (filters.rating === null || (product.ratingValue != null && product.ratingValue >= filters.rating)) &&
       (filters.sold === null || (product.soldValue != null && product.soldValue >= filters.sold));
   }
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, watchMatches });
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, watchMatches, dealsCsv });
 })();

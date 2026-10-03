@@ -86,6 +86,22 @@ test('comparison retains its shortlist across filters, caps selection and keeps 
   document.getElementById('clear-comparison').click(); assert.equal(document.querySelectorAll('.comparison-card').length, 0);
 });
 
+test('CSV downloads every filtered result including cards beyond the first page', async t => {
+  const items = Array.from({ length: 10 }, (_, i) => saved(i + 1, `Keyboard ${i + 1}`, 10000));
+  const { document, dom } = await setup(t, [], items);
+  let downloaded;
+  dom.window.Blob = class { constructor(parts) { this.text = parts.join(''); } };
+  dom.window.URL.createObjectURL = blob => { downloaded = blob.text; return 'blob:test'; };
+  dom.window.URL.revokeObjectURL = () => {};
+  dom.window.HTMLAnchorElement.prototype.click = () => {};
+  assert.equal(document.querySelectorAll('.candidate').length, 6);
+  document.getElementById('export-deals').click(); await wait();
+  assert.equal(downloaded.trim().split('\r\n').length, 11);
+  const form = document.getElementById('deal-filters'); form.elements.excluded.value = '10'; form.dispatchEvent(new dom.window.Event('input'));
+  document.getElementById('export-deals').click(); await wait();
+  assert.equal(downloaded.trim().split('\r\n').length, 10); assert.equal(downloaded.includes('Keyboard 10'), false);
+});
+
 test('discovery recovers from a closed source tab and can switch between connected Shopee tabs', async t => {
   const { chrome, document, dom } = await setup(t);
   chrome.tabs.query = async () => [{ id: 3 }, { id: 4 }, { id: 5 }];

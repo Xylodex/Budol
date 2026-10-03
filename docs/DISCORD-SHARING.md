@@ -1,4 +1,4 @@
-# Discord sharing — Budol 1.8
+# Discord sharing — Budol 1.9
 
 Right-click a Shopee PH product and choose **Send item to Discord**. The action sends immediately to the locally configured webhook. It does not save the product to the board or upload any notes, collections, history, cart, or account information.
 
@@ -20,9 +20,11 @@ The settings page accepts only tokenized HTTPS Discord webhook URLs, optionally 
 
 ## Local setup and packaging
 
+Saved-product watches can also send listing snapshots when a target price or new observed low is reached during browsing. This requires explicit Discord opt-in on each watch. A durable claim and 24-hour product cooldown are stored before sending; the local Price alerts inbox reports results and uncertain delivery is never retried automatically. Ranges and manual variant references do not trigger alerts. Imported watches are paused with Discord off. Disconnecting the webhook prevents later sends until it is configured again.
+
 The owner's ignored `extension/discord-local.json` seeds the webhook into `chrome.storage.local` on extension installation/reload. It is not a public source file. The package script explicitly excludes it from `dist/budol.zip`, then copies it separately to the local unpacked `dist` folder. Shared ZIPs require setup through Options. Disconnect sets a marker so subsequent reloads cannot silently reconnect from the seed.
 
-Reload Budol, accept changed extension permissions if the browser requests them, then refresh Shopee to install the context-menu capture script. The extension needs `contextMenus` and Discord host access in addition to its existing storage permission.
+Reload Budol, accept changed extension permissions if the browser requests them, then refresh Shopee to install the context-menu capture script. The extension needs `contextMenus`, `notifications` and Discord host access in addition to storage permission. Notifications open the local Price alerts inbox.
 
 ## Verification and references
 
