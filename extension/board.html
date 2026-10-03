@@ -41,7 +41,9 @@
         <div class="results-line"><p id="result-count" role="status"></p><button type="button" id="clear-filters" hidden>Clear filters</button></div>
         <p class="hint price-note">Listing prices can vary by variant. History updates when you visit Shopee.</p><datalist id="collection-names"></datalist>
         <div id="saved" aria-busy="true"><p class="empty-state">Loading saved products…</p></div>
-        <details class="backup" id="backup-panel"><summary>Backups & storage</summary><p>Keep a copy before uninstalling. Up to 200 products and 90 observations per product stay on this browser.</p><button id="export" type="button">Export backup</button><div class="restore-backup"><h3>Restore a backup</h3><p>Preview new products before importing. Existing products keep their notes and history.</p><label>Budol JSON backup<input id="import-file" type="file" accept="application/json,.json"></label><p id="import-preview" role="status"></p><button id="import" type="button" disabled>Import new products</button></div></details>
+        <details class="backup" id="backup-panel"><summary>Backups & storage</summary><p>Keep a copy before uninstalling. Up to 200 products and 90 observations per product stay on this browser. JSON backups include product details and image URLs, not downloaded images.</p><button id="export" type="button">Export backup</button><div class="restore-backup"><h3>Restore a backup</h3><p>Preview new products before importing. Existing products keep their notes and history.</p><label>Budol JSON backup<input id="import-file" type="file" accept="application/json,.json"></label><p id="import-preview" role="status"></p><button id="import" type="button" disabled>Import new products</button></div>
+        <h3>Saved images & share cache</h3><p id="cache-usage" role="status">Open this section to check storage.</p><p class="hint">Saving or sharing an item keeps its public details and a local image when available. Up to 200 snapshots and 32 MiB of images; older entries may be evicted. Sending a saved item needs Discord access, but no Shopee tab.</p>
+        <div class="actions"><button id="refresh-cache" type="button">Refresh cache status</button><button id="clear-images" type="button">Clear saved images</button><button id="clear-cache" type="button">Clear share cache</button></div><p class="hint">Clear saved images removes downloaded image files. Clear share cache removes those files and cached sharing snapshots. Saved products, notes, price history, watches and settings remain; saved products can still be shared as text. New saves or changed observations may cache images again.</p><div id="cache-items"></div></details>
       </section>
       <aside class="panel calculator" id="calculator-panel" aria-labelledby="calculator-heading">
         <h2 id="calculator-heading">Cost calculator</h2>
@@ -64,6 +66,6 @@
       </aside>
     </div>
   </main>
-  <footer>Data is stored in this browser.<span>Budol 1.11.0</span></footer>
+  <footer>Data is stored in this browser.<span>Budol 1.12.0</span></footer>
 </body>
 </html>

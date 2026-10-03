@@ -36,7 +36,7 @@ test('listing extraction uses accessible prices, canonical URLs, and rejects ran
   let found = api.extractProducts(document);
   assert.equal(found.length, 1); assert.equal(found[0].price, 28500); assert.equal(found[0].title, '100% cotton shirt');
   assert.equal(found[0].discount, 50);
-  assert.equal(api.normalizeProduct(found[0]).discount, undefined);
+  assert.equal(api.normalizeProduct(found[0]).discount, 50);
   document.querySelector('.price').innerHTML = '<span aria-label="promotion price"></span>₱200 - ₱300';
   assert.equal(api.extractProducts(document)[0].price, null);
   document.querySelector('.price').innerHTML = '<span aria-label="promotion price"></span><s>₱400</s><span>₱250</span>';

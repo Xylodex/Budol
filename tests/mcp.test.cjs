@@ -63,7 +63,7 @@ test('multiple real MCP stdio clients negotiate tools, validate inputs, calculat
     const transport = new StdioClientTransport({ command: process.execPath, args: [resolve(__dirname, '../mcp/server.mjs')], env: { ...process.env, BUDOL_MCP_CONFIG: file }, stderr: 'pipe' });
     await client.connect(transport); clients.push(client); t.after(() => client.close());
   }
-  const list = await clients[0].listTools(); assert.equal(list.tools.length, 9);
+  const list = await clients[0].listTools(); assert.equal(list.tools.length, 10);
   assert.equal(list.tools.find(tool => tool.name === 'budol_send_discord').annotations.readOnlyHint, false);
   assert.equal(list.tools.find(tool => tool.name === 'budol_remove_saved').annotations.destructiveHint, true);
   const status = await clients[1].callTool({ name: 'budol_status', arguments: {} }); assert.equal(status.structuredContent.connected, false);

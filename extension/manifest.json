@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Budol",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Find Shopee Philippines discounts, sort loaded deals, save products, and estimate checkout costs.",
   "permissions": [
     "storage",
     "contextMenus",
     "notifications"
   ],
-  "host_permissions": ["https://discord.com/api/webhooks/*", "https://discord.com/api/v10/webhooks/*"],
+  "host_permissions": ["https://discord.com/api/webhooks/*", "https://discord.com/api/v10/webhooks/*", "https://*.susercontent.com/*"],
   "optional_host_permissions": ["http://127.0.0.1/*", "https://*.shopee.ph/*"],
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": {

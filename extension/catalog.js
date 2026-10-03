@@ -4,6 +4,9 @@
   const MAX_HISTORY = 90;
   const MAX_MONEY = 100000000; // PHP 1 million, stored in centavos.
   const clean = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+  function imageUrl(raw) {
+    try { const url = new URL(raw); return url.protocol === 'https:' && !url.username && !url.password && !url.port && url.href.length <= 2048 && /(^|\.)(susercontent\.com|shopee\.ph|shopeemobile\.com)$/.test(url.hostname) ? url.href : null; } catch { return null; }
+  }
 
   function productIdentity(raw) {
     try {
@@ -180,7 +183,10 @@
     }
     if (conditionalPrice(card)) { price = null; priceRange = null; priceNote = 'Shown price requires an offer; confirm eligibility on Shopee.'; }
     if (priceRange?.min === priceRange?.max && priceRange) { price = priceRange.min; priceRange = null; }
-    return { ...identity, title, price, priceRange, priceNote, offers: readOffers(card), ...metadata(card), discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
+    const img = [...card.querySelectorAll('img')].find(node => visible(node) && imageUrl(node.currentSrc || node.src));
+    const crossed = [...card.querySelectorAll('s, del')].map(node => parsePrice(node.textContent)).filter(value => value !== null);
+    const shipping = [...card.querySelectorAll('span, div, small')].find(node => !node.children.length && visible(node) && /^(?:free shipping|shipping (?:fee|from)|ships? (?:in|within))\b/i.test(node.textContent.trim()));
+    return { ...identity, title, price, priceRange, priceNote, image: img ? imageUrl(img.currentSrc || img.src) : null, originalPrice: new Set(crossed).size === 1 ? crossed[0] : null, shipping: clean(shipping?.textContent, 200), offers: readOffers(card), ...metadata(card), discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
   }
 
   function extractProducts(root) {
@@ -206,6 +212,9 @@
     const range = value.priceRange;
     if (range != null && (![range.min, range.max].every(n => Number.isSafeInteger(n) && n >= 0 && n <= MAX_MONEY) || range.min >= range.max || value.price !== null)) throw new Error('Invalid listing price range.');
     return { ...identity, title: clean(value.title, 240) || 'Shopee product', price: value.price, priceRange: range ? { min: range.min, max: range.max } : null, priceNote: clean(value.priceNote, 140), offers: normalizeOffers(value.offers), currency: 'PHP', scope: 'listing',
+      image: imageUrl(value.image), discount: typeof value.discount === 'number' && Number.isFinite(value.discount) && value.discount >= 0 && value.discount <= 100 ? value.discount : null,
+      originalPrice: Number.isSafeInteger(value.originalPrice) && value.originalPrice > 0 && value.originalPrice <= MAX_MONEY ? value.originalPrice : null,
+      rating: clean(value.rating, 200), sold: clean(value.sold, 200), shipping: clean(value.shipping, 200), selectedVariation: clean(value.selectedVariation, 200),
       ratingValue: typeof value.ratingValue === 'number' && value.ratingValue >= 0 && value.ratingValue <= 5 ? value.ratingValue : null,
       soldValue: Number.isSafeInteger(value.soldValue) && value.soldValue >= 0 && value.soldValue <= 1000000000 ? value.soldValue : null,
       soldText: clean(value.soldText, 80), seller: clean(value.seller, 160), location: clean(value.location, 160) };

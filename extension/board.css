@@ -105,3 +105,4 @@ footer { border-top: 1px solid var(--line); font-size: 13px; color: var(--muted)
 .offers { width: 100%; min-width: 0; overflow-wrap: anywhere; }
 .offer { padding: 12px 0; border-bottom: 1px solid #83aecb55; }
 .offer p { margin: 6px 0; }
+.cached-share { padding: 14px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }

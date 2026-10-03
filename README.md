@@ -2,6 +2,8 @@
 
 Find discounted products on Shopee Philippines. Budol is a Chrome and Edge extension that highlights matching listings and puts the highest advertised discounts first in a local Deals page.
 
+Version **1.12.0** keeps public product snapshots and downloaded image files for later Discord sharing. Use **Send to Discord** on a saved product with Shopee closed. **Backups & storage → Saved images & share cache** shows usage and separate image/cache cleanup controls. [Details and limits](docs/OFFLINE-SHARING.md).
+
 Version **1.11.0** adds a local **Codex MCP** connector with nine tools for reading loaded deals/offers, saved observations and alerts, estimating costs, and optional saves/removal/Discord sharing. Run `npm ci` then `npm run mcp:setup -- --register` from the full repository. Reload Budol, open **Discord settings → Codex MCP**, and connect. See [MCP setup, tools and access controls](docs/MCP.md).
 
 Version **1.10.0** adds **Offers shown** to Deals, Saved and Compare: vouchers, shipping, Coins/cashback, bundles, add-ons, Flash Deals, payment/channel offers and campaign claims. It keeps captured conditions separate from listing prices and includes them in Discord shares and exports. See the [Shopee promotion research and limits](docs/SHOPEE-PROMOTIONS.md).
@@ -45,6 +47,8 @@ Open **Offers shown** on a product for its captured promotion wording, minimum s
 
 Right-click a Shopee product card, image, or link and choose **Send item to Discord**. A blue message on Shopee reports sending, success, or failure; the extension badge also reports status. This action sends immediately. Automatic price alerts require separate opt-in on each saved product's watch.
 
+Saving or sharing an item also retains a public sharing snapshot and attempts to download its image. Later, use **Send to Discord** on its saved card or cached entry without opening Shopee. Cached sends upload local image bytes; missing/cleared images produce a text-only message without fetching Shopee. The message includes the snapshot date, since prices and offers may have changed. Discord still needs an internet connection. Older saved items need to be revisited/saved once to capture an image; no missing images are silently fetched during a cached send.
+
 The embed contains a clickable product title, photo, listing price, advertised discount, crossed-out price, and readable rating/sold/seller/location/shipping details when available. It also includes up to six captured offers with eligibility unverified. Missing details are omitted. Product-detail pages use matching Open Graph metadata and bounded public promotion rows near the product title when present; otherwise they share the product link with an unknown price. Budol never guesses stock, voucher eligibility, delivery dates, or variant prices.
 
 Use **Discord settings** in the popup (or the extension's Options page) to save or replace a webhook. Saving does not send a message. Disconnect clears the saved webhook. For forum channels, add a valid thread_id query parameter. A missing webhook opens settings on the first send attempt.
@@ -78,6 +82,8 @@ To send matches to Discord, configure a webhook in settings and explicitly enabl
 ## Storage and privacy
 
 Budol requests `storage`, `contextMenus`, `notifications`, and host access to Discord for webhook delivery. Content scripts run on `https://shopee.ph` and its subdomains. Settings and up to 200 saved products are stored in this browser, with the latest 90 single-price and 90 range observations per product. An unchanged price is recorded at most once per UTC day; observed price changes are recorded immediately.
+
+Budol also requests `https://*.susercontent.com/*` access to download public Shopee images without cookies. The separate IndexedDB share cache retains at most 200 public snapshots and 32 MiB of images, with a 2 MiB limit per image. Clear images or the entire share cache under **Backups & storage**. These controls preserve the saved board, notes, observations, watches, webhook/MCP settings and send cooldowns. JSON backups retain image URLs and product details, but exclude downloaded images and the separate share cache.
 
 Budol reads loaded listing cards and connected Shopee tab titles. Saved products retain public listing evidence, observations, manually entered variant references, watch settings, collections, and notes. The local alert inbox retains snapshots from triggered watches until cleared or evicted. It does not read account details, cart contents, or purchase history, and makes no background price requests. An explicit **Send item to Discord** action or an opted-in watch uploads public listing details and an available image URL to your configured webhook. Private notes, collections, saved history, and account details are excluded. The webhook token stays in local settings and the optional private setup file. Product links open Shopee normally. Backups contain your saved products, notes, manual variant references and watches, but exclude webhook tokens and the alert inbox.
 
