@@ -16,6 +16,15 @@
   let discountThreshold = 50;
   let pageRevision = 0;
   const drafts = new Map();
+  const configDrafts = new Map();
+  try {
+    const restored = JSON.parse(sessionStorage.getItem('budolConfigDrafts') || '[]');
+    if (Array.isArray(restored)) for (const entry of restored.slice(0, 400)) {
+      if (!Array.isArray(entry)) continue;
+      const [key, values] = entry;
+      if (typeof key === 'string' && /^shopee:\d+:\d+:listing:PHP:(watch|variant)$/.test(key) && values && typeof values === 'object') configDrafts.set(key, values);
+    }
+  } catch { /* In-memory drafts still protect rerenders. */ }
   try {
     const restored = JSON.parse(sessionStorage.getItem('budolNoteDrafts') || '[]');
     if (Array.isArray(restored)) for (const [id, draft] of restored.slice(0, 200)) {
@@ -24,6 +33,34 @@
   } catch { /* Storage can be unavailable; keep in-memory draft protection. */ }
   function storeDrafts() {
     try { sessionStorage.setItem('budolNoteDrafts', JSON.stringify([...drafts])); } catch { /* The unload warning remains available. */ }
+    try { sessionStorage.setItem('budolConfigDrafts', JSON.stringify([...configDrafts])); } catch { /* Keep in-memory drafts. */ }
+  }
+  function protectForm(form, key, details, restored = () => {}) {
+    const controls = [...form.querySelectorAll('input[name], select[name]')];
+    const values = () => Object.fromEntries(controls.map(input => [input.name, input.type === 'checkbox' ? input.checked : input.value]));
+    const baseline = values();
+    const apply = value => {
+      for (const input of controls) {
+        if (input.type === 'checkbox') input.checked = value[input.name] === true;
+        else if (typeof value[input.name] === 'string') input.value = value[input.name].slice(0, 100);
+      }
+      restored();
+    };
+    if (configDrafts.has(key)) { apply(configDrafts.get(key)); details.open = true; }
+    const status = element('p', configDrafts.has(key) ? 'Unsaved changes · kept in this tab' : '', 'hint'); status.setAttribute('role', 'status');
+    const discard = element('button', 'Discard unsaved changes', 'quiet'); discard.type = 'button'; discard.hidden = !configDrafts.has(key);
+    const remember = () => {
+      const current = values();
+      if (JSON.stringify(current) === JSON.stringify(baseline)) configDrafts.delete(key); else configDrafts.set(key, current);
+      storeDrafts(); status.textContent = configDrafts.has(key) ? 'Unsaved changes · kept in this tab' : ''; discard.hidden = !configDrafts.has(key);
+    };
+    form.addEventListener('input', remember); form.addEventListener('change', remember);
+    discard.addEventListener('click', () => { apply(baseline); remember(); controls[0]?.focus(); });
+    form.append(status, discard);
+    return { values, saved(submitted) {
+      if (!configDrafts.has(key) || JSON.stringify(configDrafts.get(key)) === JSON.stringify(submitted)) configDrafts.delete(key);
+      storeDrafts();
+    } };
   }
   const openedDetails = new Set();
   const selected = new URLSearchParams(location.search).get('tab');
@@ -44,14 +81,24 @@
     if (!result?.ok) throw new Error(result?.error || 'Budol is unavailable. Reload the extension and try again.');
     return result.board;
   }
+  const activeActions = new Map();
   async function action(button, task) {
-    const label = button.textContent;
+    if (button.id === 'import' && activeActions.has(button)) return;
+    const state = activeActions.get(button) || { label: button.textContent, count: 0 };
+    state.count++; activeActions.set(button, state);
     button.disabled = true;
     button.textContent = 'Working…';
     button.setAttribute('aria-busy', 'true');
     try { await task(); } catch (error) { notify(error.message, true); }
     finally {
-      if (button.isConnected) { button.disabled = false; button.textContent = label; button.removeAttribute('aria-busy'); }
+      state.count--;
+      if (!state.count) activeActions.delete(button);
+      if (!state.count && button.isConnected) {
+        button.textContent = state.label; button.removeAttribute('aria-busy'); button.disabled = false;
+        if (button.id === 'import') button.disabled = !imported || !imported.products.some(p => !board.products.some(saved => saved.id === p.id));
+        if (button.id === 'clear-alerts') button.disabled = $('alerts-count').textContent === '(0)';
+        if (button.id === 'export-deals') { try { button.disabled = filteredCandidates().length === 0; } catch { button.disabled = true; } }
+      }
     }
   }
   function link(product) {
@@ -155,7 +202,7 @@
     if (candidates.length && !shown.length) {
       const empty = element('p', 'No loaded products match. Adjust the product filters or discount threshold, or scroll on Shopee and refresh.', 'hint');
       const all = element('button', 'Show all loaded products');
-      all.addEventListener('click', () => { $('matching-only').checked = false; renderCandidates(); $('matching-only').focus(); });
+      all.addEventListener('click', () => { $('matching-only').checked = false; $('deal-filters').reset(); candidateLimit = 6; renderCandidates(); $('matching-only').focus(); });
       $('candidates').append(empty, all);
     }
     $('more-candidates').hidden = shown.length <= candidateLimit;
@@ -192,8 +239,11 @@
     for (const point of [...points].reverse()) { const row = element('tr'); row.append(element('td', date(point.at)), element('td', format(point.price))); body.append(row); }
     table.append(body); const wrapper = element('div', undefined, 'history-table'); wrapper.append(table); details.append(wrapper); return details;
   }
+  let alertsRevision = 0;
   async function renderAlerts() {
-    const alerts = (await chrome.storage.local.get('budolAlerts')).budolAlerts || [];
+    const revision = ++alertsRevision;
+    const alerts = BudolCatalog.normalizeAlerts((await chrome.storage.local.get('budolAlerts')).budolAlerts);
+    if (revision !== alertsRevision) return;
     $('alerts-count').textContent = `(${alerts.length})`;
     $('alerts').replaceChildren();
     for (const alert of [...alerts].reverse()) {
@@ -218,8 +268,9 @@
     const discordLabel = element('label', 'Also send matching prices to my Discord webhook', 'inline-check'); const discord = element('input'); discord.type = 'checkbox'; discord.name = 'discord'; discord.checked = watch?.discord || false; discordLabel.prepend(discord);
     const save = element('button', 'Save watch'); save.type = 'submit'; const remove = element('button', 'Remove watch', 'quiet'); remove.type = 'button'; remove.disabled = !watch;
     form.append(modeLabel, targetLabel, pausedLabel, discordLabel, element('p', 'At most one alert per product per 24 hours. The same price is not sent again. Ranges and manual variant prices do not trigger watches.', 'hint'), save, remove);
-    form.addEventListener('submit', event => { event.preventDefault(); action(save, async () => { board = await request('BUDOL_WATCH', { id: product.id, watch: { mode: mode.value, target: target.value, paused: paused.checked, discord: discord.checked } }); render(); notify('Price watch saved.'); }); });
-    remove.addEventListener('click', () => action(remove, async () => { board = await request('BUDOL_WATCH', { id: product.id, watch: null }); render(); notify('Price watch removed.'); }));
+    const draft = protectForm(form, `${product.id}:watch`, details, update);
+    form.addEventListener('submit', event => { event.preventDefault(); action(save, async () => { const submitted = draft.values(); board = await request('BUDOL_WATCH', { id: product.id, watch: submitted }); draft.saved(submitted); render(); notify('Price watch saved.'); }); });
+    remove.addEventListener('click', () => action(remove, async () => { const submitted = draft.values(); board = await request('BUDOL_WATCH', { id: product.id, watch: null }); draft.saved(submitted); render(); notify('Price watch removed.'); }));
     details.append(form); return details;
   }
   function productView(product) {
@@ -255,7 +306,8 @@
     const remove = element('button', 'Remove', 'quiet');
     remove.addEventListener('click', () => action(remove, async () => {
       board = await request('BUDOL_REMOVE', { id: product.id });
-      removedProduct = { product, draft: drafts.get(product.id) }; drafts.delete(product.id); storeDrafts();
+      removedProduct = { product, draft: drafts.get(product.id), config: [...configDrafts].filter(([key]) => key.startsWith(`${product.id}:`)) };
+      drafts.delete(product.id); for (const [key] of removedProduct.config) configDrafts.delete(key); storeDrafts();
       if (priceProductId === product.id) resetCalculator();
       render();
       $('undo-message').textContent = `Removed “${product.title}”.`;
@@ -279,11 +331,14 @@
     const saveVariant = element('button', 'Save variant'); saveVariant.type = 'submit';
     const clearVariant = element('button', 'Clear variant', 'quiet'); clearVariant.type = 'button'; clearVariant.disabled = !product.variant;
     variantForm.append(nameLabel, priceLabel, saveVariant, clearVariant);
+    const variantDraft = protectForm(variantForm, `${product.id}:variant`, variantDetails);
     variantForm.addEventListener('submit', event => { event.preventDefault(); action(saveVariant, async () => {
-      board = await request('BUDOL_VARIANT', { id: product.id, variant: { name: variantName.value, price: variantPrice.value } });
+      const submitted = variantDraft.values();
+      board = await request('BUDOL_VARIANT', { id: product.id, variant: { name: submitted['variant-name'], price: submitted['variant-price'] } });
+      variantDraft.saved(submitted);
       if (priceProductId === product.id) resetCalculator(); render(); notify('Variant saved for estimates.');
     }); });
-    clearVariant.addEventListener('click', () => action(clearVariant, async () => { board = await request('BUDOL_VARIANT', { id: product.id, variant: null }); if (priceProductId === product.id) resetCalculator(); render(); notify('Variant cleared.'); }));
+    clearVariant.addEventListener('click', () => action(clearVariant, async () => { const submitted = variantDraft.values(); board = await request('BUDOL_VARIANT', { id: product.id, variant: null }); variantDraft.saved(submitted); if (priceProductId === product.id) resetCalculator(); render(); notify('Variant cleared.'); }));
     variantDetails.append(variantForm); card.append(variantDetails);
     const details = element('details'); rememberDisclosure(details, `${product.id}:notes`);
     if (drafts.has(product.id)) details.open = true;
@@ -375,6 +430,7 @@
     if (!removedProduct) return;
     board = await request('BUDOL_IMPORT', { board: { version: 1, products: [removedProduct.product] } });
     if (removedProduct.draft) { drafts.set(removedProduct.product.id, removedProduct.draft); storeDrafts(); }
+    for (const [key, value] of removedProduct.config || []) configDrafts.set(key, value); storeDrafts();
     removedProduct = null; $('undo-notice').hidden = true; render(); $('saved-heading').focus(); notify('Product restored.');
   }));
   async function readPage() {
@@ -408,8 +464,9 @@
     }
     candidateLimit = 6;
     $('candidates').setAttribute('aria-busy', 'false');
-    try { board = await request('BUDOL_BOARD_GET'); }
+    try { const latest = await request('BUDOL_BOARD_GET'); if (revision !== pageRevision) return; board = latest; }
     catch (error) { notify(error.message, true); }
+    if (revision !== pageRevision) return;
     render();
   }
   $('refresh').addEventListener('click', () => action($('refresh'), readPage));
@@ -459,12 +516,14 @@
       imported = BudolCatalog.validateBackup(parsed);
       const added = imported.products.filter(p => !board.products.some(saved => saved.id === p.id)).length;
       $('import-preview').textContent = `${added} new products; ${imported.products.length - added} already saved and will be skipped.`;
-      $('import').disabled = added === 0;
+      $('import').disabled = added === 0 || activeActions.has($('import'));
     } catch (error) { if (revision === importRevision) notify(error.message, true); }
   });
   $('import').addEventListener('click', () => action($('import'), async () => {
-    board = await request('BUDOL_IMPORT', { board: imported }); imported = null; $('import-file').value = ''; $('import-preview').textContent = 'Import complete.'; render(); notify('New products imported.');
-    setTimeout(() => { $('import').disabled = true; }, 0);
+    const revision = importRevision;
+    board = await request('BUDOL_IMPORT', { board: imported });
+    if (revision === importRevision) { imported = null; $('import-file').value = ''; $('import-preview').textContent = 'Import complete. Imported watches are paused with Discord off.'; }
+    render(); notify('New products imported.');
   }));
   const form = $('calculator');
   const labels = { price: 'Item price', quantity: 'Quantity', shipping: 'Shipping', discount: 'Amount off', percent: 'Percent off', cap: 'Maximum discount', minimum: 'Minimum item subtotal' };
@@ -570,7 +629,7 @@
       if (JSON.stringify(latest) !== JSON.stringify(board)) { board = latest; render(); }
     } catch (error) { notify(error.message, true); }
   });
-  window.addEventListener('beforeunload', event => { if (drafts.size) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (drafts.size || configDrafts.size) { event.preventDefault(); event.returnValue = ''; } });
   (async () => {
     try {
       const settings = await chrome.storage.local.get({ threshold: 50 });

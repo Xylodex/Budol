@@ -21,6 +21,7 @@ async function setup(t, products = [], candidates = [], fail = '', restoredDraft
     if (message.type === 'BUDOL_IMPORT') board.products.push(...message.board.products);
     if (message.type === 'BUDOL_EDIT') Object.assign(board.products.find(p => p.id === message.id), { collection: message.collection, notes: message.notes });
     if (message.type === 'BUDOL_VARIANT') board.products.find(p => p.id === message.id).variant = message.variant ? { name: message.variant.name, price: Number(message.variant.price) * 100, at: '2026-10-03T00:00:00Z' } : null;
+    if (message.type === 'BUDOL_WATCH') board.products.find(p => p.id === message.id).watch = message.watch ? { ...message.watch, target: Number(message.watch.target) * 100, createdAt: '2026-10-03T00:00:00Z' } : null;
     if (message.type === 'BUDOL_SAVE') board.products.push({ ...message.product, collection: 'Wishlist', notes: '', savedAt: '2026-10-02T04:00:00Z', lastSeen: '2026-10-02T04:00:00Z', history: [] });
     return { ok: true, board: structuredClone(board) };
   };
@@ -100,6 +101,46 @@ test('CSV downloads every filtered result including cards beyond the first page'
   const form = document.getElementById('deal-filters'); form.elements.excluded.value = '10'; form.dispatchEvent(new dom.window.Event('input'));
   document.getElementById('export-deals').click(); await wait();
   assert.equal(downloaded.trim().split('\r\n').length, 10); assert.equal(downloaded.includes('Keyboard 10'), false);
+});
+
+test('show all clears both keyword and discount filters', async t => {
+  const { document, dom } = await setup(t, [], [{ ...saved(1, 'Keyboard', 10000), discount: 10 }]);
+  const form = document.getElementById('deal-filters'); form.elements.required.value = 'missing'; form.dispatchEvent(new dom.window.Event('input'));
+  document.querySelector('#candidates button').click();
+  assert.equal(form.elements.required.value, ''); assert.equal(document.querySelectorAll('.candidate').length, 1);
+});
+
+test('watch and variant drafts survive filtering and remain until explicitly saved or discarded', async t => {
+  const { document, dom, messages } = await setup(t, [saved(1, 'Keyboard', 10000)]);
+  const update = (selector, value) => { const input = document.querySelector(selector); input.value = value; input.dispatchEvent(new dom.window.Event('input', { bubbles: true })); };
+  update('[name="variant-name"]', 'Blue'); update('[name="variant-price"]', '250'); update('.watch-form [name="target"]', '200');
+  update('#search', 'missing'); update('#search', '');
+  assert.equal(document.querySelector('[name="variant-name"]').value, 'Blue'); assert.equal(document.querySelector('.watch-form [name="target"]').value, '200');
+  assert.equal(JSON.parse(dom.window.sessionStorage.getItem('budolConfigDrafts')).length, 2);
+  document.querySelector('.watch-form').dispatchEvent(new dom.window.Event('submit', { cancelable: true })); await wait();
+  assert.equal(messages.filter(m => m.type === 'BUDOL_WATCH').at(-1).watch.target, '200');
+  assert.equal(JSON.parse(dom.window.sessionStorage.getItem('budolConfigDrafts')).length, 1);
+  const variantForm = document.querySelector('[name="variant-name"]').form;
+  [...variantForm.querySelectorAll('button')].find(button => button.textContent === 'Discard unsaved changes').click();
+  assert.equal(document.querySelector('[name="variant-name"]').value, '');
+  assert.equal(JSON.parse(dom.window.sessionStorage.getItem('budolConfigDrafts')).length, 0);
+});
+
+test('completing an older import preserves a newer file selection', async t => {
+  const { document, dom, chrome } = await setup(t);
+  const first = { version: 1, products: [saved(1, 'First backup', 10000)] };
+  const second = { version: 1, products: [saved(2, 'Second backup', 20000)] };
+  const input = document.getElementById('import-file');
+  const choose = async board => { Object.defineProperty(input, 'files', { configurable: true, value: [{ size: 100, text: async () => JSON.stringify(board) }] }); input.dispatchEvent(new dom.window.Event('change')); await wait(); };
+  await choose(first);
+  let finish; const original = chrome.runtime.sendMessage;
+  chrome.runtime.sendMessage = message => message.type === 'BUDOL_IMPORT' ? new Promise(resolve => { finish = async () => resolve(await original(message)); }) : original(message);
+  document.getElementById('import').click(); await wait(); await choose(second);
+  assert.equal(document.getElementById('import').disabled, true);
+  await finish(); await wait(); assert.equal(document.getElementById('import').disabled, false);
+  chrome.runtime.sendMessage = original; document.getElementById('import').click(); await wait();
+  assert.equal(document.querySelectorAll('#saved .product').length, 2);
+  assert.equal(document.getElementById('import').disabled, true);
 });
 
 test('discovery recovers from a closed source tab and can switch between connected Shopee tabs', async t => {
