@@ -52,6 +52,20 @@ test('discovery ranks advertised discounts, excludes unknown discounts, and reco
   assert.deepEqual([...document.querySelectorAll('.candidate > a')].map(n => n.textContent), ['High', 'Low', 'Unknown']);
 });
 
+test('deal filters search beyond the first six cards and reset cleanly', async t => {
+  const items = Array.from({ length: 10 }, (_, i) => saved(i + 1, i === 9 ? 'Wireless keyboard' : 'Mouse', 10000));
+  const { document, dom } = await setup(t, [], items);
+  const form = document.getElementById('deal-filters');
+  form.elements.required.value = 'keyboard'; form.dispatchEvent(new dom.window.Event('input'));
+  assert.equal(document.querySelectorAll('.candidate').length, 1);
+  assert.match(document.querySelector('.candidate').textContent, /Wireless keyboard/);
+  form.elements.rating.value = '4'; form.dispatchEvent(new dom.window.Event('input'));
+  assert.equal(document.querySelectorAll('.candidate').length, 0);
+  form.reset(); await wait();
+  assert.equal(document.querySelectorAll('.candidate').length, 6);
+  assert.match(document.getElementById('deal-count').textContent, /^10/);
+});
+
 test('discovery recovers from a closed source tab and can switch between connected Shopee tabs', async t => {
   const { chrome, document, dom } = await setup(t);
   chrome.tabs.query = async () => [{ id: 3 }, { id: 4 }, { id: 5 }];
