@@ -30,6 +30,26 @@
     return money(matches[0][1].replaceAll(',', ''));
   }
 
+  function parseRange(text) {
+    const amount = '((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{1,2})?)';
+    const match = String(text).trim().match(new RegExp('^(?:₱|PHP)\\s*' + amount + '\\s*(?:[-–—]|to)\\s*(?:₱|PHP)?\\s*' + amount + '$', 'i'));
+    if (!match) return null;
+    const min = money(match[1].replaceAll(',', '')), max = money(match[2].replaceAll(',', ''));
+    return min !== null && max !== null && min <= max ? { min, max } : null;
+  }
+  function metadata(card) {
+    const pick = selector => clean([...card.querySelectorAll(selector)].find(visible)?.textContent, 160);
+    const labels = [...card.querySelectorAll('[aria-label]')].filter(visible).map(n => n.getAttribute('aria-label'));
+    const ratingText = pick('[data-sqe="rating"], [data-testid="rating"]') || labels.find(s => /^(?:rated?\s*)?[0-5](?:\.\d+)?\s*(?:out of 5|\/\s*5|stars?)$/i.test(s)) || '';
+    const ratingMatch = ratingText.match(/^(?:rated?\s*)?([0-5](?:\.\d+)?)\s*(?:(?:out of 5|\/\s*5|stars?))?$/i);
+    const ratingValue = ratingMatch && Number(ratingMatch[1]) <= 5 ? Number(ratingMatch[1]) : null;
+    const texts = [...card.querySelectorAll('span, div, small')].filter(n => !n.children.length && visible(n) && !n.closest('[data-sqe="name"], [class*="line-clamp-2"]')).map(n => clean(n.textContent, 160));
+    const soldText = texts.find(s => /^\d[\d,.]*\s*[km]?\+?\s+sold$/i.test(s)) || '';
+    const soldMatch = soldText.match(/^([\d,]+(?:\.\d+)?)\s*([km])?(\+)?\s+sold$/i);
+    const soldValue = soldMatch ? Math.round(Number(soldMatch[1].replaceAll(',', '')) * ({ k: 1000, m: 1000000 }[soldMatch[2]?.toLowerCase()] || 1)) : null;
+    return { ratingValue, soldValue, soldText, seller: pick('[data-sqe="shop-name"], [data-testid="shop-name"]'), location: pick('[data-sqe="location"], [data-testid="location"]') };
+  }
+
   function visible(element) {
     if (element.closest('script, style, template, [hidden], [aria-hidden="true"], [data-budol-ignore], del, s')) return false;
     for (let node = element; node; node = node.parentElement) {
@@ -47,11 +67,12 @@
     const title = clean(titleNode?.textContent || card.querySelector('img[alt]')?.getAttribute('alt'), 240) || 'Shopee product';
     // Prefer Shopee's explicit accessible price label; never use discount/cashback numbers.
     const marker = [...card.querySelectorAll('[aria-label="promotion price"], [aria-label="price"]')].find(visible);
-    let price = null;
+    let price = null, priceRange = null;
     if (marker) {
       const parent = marker.parentElement.cloneNode(true);
       parent.querySelectorAll('del, s, [hidden], [aria-hidden="true"]').forEach(node => node.remove());
       price = parsePrice(parent.textContent);
+      priceRange = parseRange(parent.textContent);
     } else {
       const prices = [...card.querySelectorAll('span, div')]
         .filter(node => visible(node) && /₱|PHP/i.test(node.textContent) &&
@@ -59,8 +80,11 @@
         .map(node => parsePrice(node.textContent));
       const unique = [...new Set(prices)];
       if (unique.length === 1) price = unique[0];
+      const ranges = [...card.querySelectorAll('span, div')].filter(node => visible(node) && ![...node.children].some(child => /₱|PHP/i.test(child.textContent))).map(node => parseRange(node.textContent)).filter(Boolean);
+      if (price === null && new Set(ranges.map(r => JSON.stringify(r))).size === 1 && prices.every(p => p === null)) priceRange = ranges[0];
     }
-    return { ...identity, title, price, discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
+    if (priceRange?.min === priceRange?.max && priceRange) { price = priceRange.min; priceRange = null; }
+    return { ...identity, title, price, priceRange, ...metadata(card), discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
   }
 
   function extractProducts(root) {
@@ -71,7 +95,7 @@
       if (!product) continue;
       // Conflicting prices for one item on the same page are not a single observation.
       const previous = products.get(product.id);
-      if (previous && previous.price !== product.price) product.price = null;
+      if (previous && (previous.price !== product.price || JSON.stringify(previous.priceRange) !== JSON.stringify(product.priceRange))) { product.price = null; product.priceRange = null; }
       if (previous && previous.discount !== product.discount) product.discount = null;
       products.set(product.id, product);
       if (products.size >= MAX_PRODUCTS) break;
@@ -83,7 +107,12 @@
     const identity = productIdentity(value?.url);
     if (!identity || value.currency !== 'PHP' || value.scope !== 'listing') throw new Error('Unsupported product. Use a Shopee PH listing.');
     if (value.price !== null && (!Number.isSafeInteger(value.price) || value.price < 0 || value.price > MAX_MONEY)) throw new Error('Invalid product price.');
-    return { ...identity, title: clean(value.title, 240) || 'Shopee product', price: value.price, currency: 'PHP', scope: 'listing' };
+    const range = value.priceRange;
+    if (range != null && (![range.min, range.max].every(n => Number.isSafeInteger(n) && n >= 0 && n <= MAX_MONEY) || range.min >= range.max || value.price !== null)) throw new Error('Invalid listing price range.');
+    return { ...identity, title: clean(value.title, 240) || 'Shopee product', price: value.price, priceRange: range ? { min: range.min, max: range.max } : null, currency: 'PHP', scope: 'listing',
+      ratingValue: typeof value.ratingValue === 'number' && value.ratingValue >= 0 && value.ratingValue <= 5 ? value.ratingValue : null,
+      soldValue: Number.isSafeInteger(value.soldValue) && value.soldValue >= 0 && value.soldValue <= 1000000000 ? value.soldValue : null,
+      soldText: clean(value.soldText, 80), seller: clean(value.seller, 160), location: clean(value.location, 160) };
   }
 
   function observe(saved, product, now) {
@@ -94,7 +123,12 @@
         history.push({ price: product.price, at: now });
       }
     }
-    return { ...saved, ...product, lastSeen: now, history: history.slice(-MAX_HISTORY) };
+    const rangeHistory = [...(saved.rangeHistory || [])];
+    if (product.priceRange) {
+      const last = rangeHistory.at(-1), range = product.priceRange;
+      if (!last || last.min !== range.min || last.max !== range.max || last.at.slice(0, 10) !== now.slice(0, 10)) rangeHistory.push({ ...range, at: now });
+    }
+    return { ...saved, ...product, lastSeen: now, history: history.slice(-MAX_HISTORY), rangeHistory: rangeHistory.slice(-MAX_HISTORY) };
   }
 
   function validateBackup(value) {
@@ -113,7 +147,17 @@
         if (!Number.isSafeInteger(point.price) || point.price < 0 || point.price > MAX_MONEY) throw new Error('Invalid historical price.');
         return { price: point.price, at: date(point.at) };
       }).sort((a, b) => a.at.localeCompare(b.at));
-      return { ...product, collection: clean(raw.collection, 60) || 'Wishlist', notes: clean(raw.notes, 1000), savedAt: date(raw.savedAt), lastSeen: date(raw.lastSeen), history };
+      if (raw.rangeHistory !== undefined && (!Array.isArray(raw.rangeHistory) || raw.rangeHistory.length > MAX_HISTORY)) throw new Error('Invalid range history.');
+      const rangeHistory = (raw.rangeHistory || []).map(point => {
+        if (![point.min, point.max].every(n => Number.isSafeInteger(n) && n >= 0 && n <= MAX_MONEY) || point.min >= point.max) throw new Error('Invalid historical range.');
+        return { min: point.min, max: point.max, at: date(point.at) };
+      }).sort((a, b) => a.at.localeCompare(b.at));
+      let variant = null;
+      if (raw.variant != null) {
+        if (!clean(raw.variant.name, 100) || !Number.isSafeInteger(raw.variant.price) || raw.variant.price < 0 || raw.variant.price > MAX_MONEY) throw new Error('Invalid confirmed variant.');
+        variant = { name: clean(raw.variant.name, 100), price: raw.variant.price, at: date(raw.variant.at) };
+      }
+      return { ...product, collection: clean(raw.collection, 60) || 'Wishlist', notes: clean(raw.notes, 1000), savedAt: date(raw.savedAt), lastSeen: date(raw.lastSeen), history, rangeHistory, variant };
     });
     return { version: 1, products };
   }
@@ -131,5 +175,7 @@
     return { subtotal, voucher, shipping, eligible, total: subtotal - voucher + shipping, cashback };
   }
 
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate });
+  const format = cents => cents == null ? 'Price unavailable' : new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
+  const priceLabel = product => product.priceRange ? `${format(product.priceRange.min)}–${format(product.priceRange.max)} · varies by variant` : format(product.price);
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel });
 })();

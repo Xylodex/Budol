@@ -22,7 +22,7 @@
   const php = cents => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
   function payload(raw, now = new Date()) {
     const product = BudolCatalog.normalizeProduct(raw);
-    const fields = [{ name: 'Listing price', value: product.price === null ? 'Check price and variant on Shopee' : php(product.price), inline: true }];
+    const fields = [{ name: 'Listing price', value: product.priceRange ? BudolCatalog.priceLabel(product) : product.price === null ? 'Check price and variant on Shopee' : php(product.price), inline: true }];
     if (typeof raw.discount === 'number' && Number.isFinite(raw.discount) && raw.discount >= 0 && raw.discount <= 100) fields.push({ name: 'Advertised discount', value: `${raw.discount}% off`, inline: true });
     if (Number.isSafeInteger(raw.originalPrice) && raw.originalPrice > 0 && raw.originalPrice <= 100000000 && (product.price === null || raw.originalPrice > product.price)) fields.push({ name: 'Crossed-out listing price', value: php(raw.originalPrice), inline: true });
     for (const [key, name] of [['rating', 'Rating'], ['sold', 'Sold'], ['seller', 'Seller'], ['location', 'Ships from'], ['shipping', 'Shipping / offer shown']]) {
