@@ -36,13 +36,27 @@
   }
 
   function usableBadge(element) {
-    return !element.closest('script, style, template, [hidden], [data-budol-ignore]');
+    if (element.closest('script, style, template, [hidden], [aria-hidden="true"], [data-budol-ignore], [data-sqe="name"], [class*="line-clamp-2"], h1')) return false;
+    for (let node = element; node; node = node.parentElement) {
+      const style = element.ownerDocument.defaultView.getComputedStyle(node);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+    }
+    return true;
+  }
+
+  function conditionalBadge(element, card) {
+    for (let node = element, depth = 0; node && node !== card && depth < 3; node = node.parentElement, depth++) {
+      if (node.querySelector('[aria-label="promotion price"], [aria-label="price"], [data-sqe="name"], [class*="line-clamp-2"]')) break;
+      const text = `${node.getAttribute('aria-label') || ''} ${node.textContent}`.replace(/\s+/g, ' ').trim();
+      if (text.length < 300 && /voucher|cashback|\bcoins?\b|shipping|spaylater|shopeepay|\bbank\b|\bpayment\b|\bbundle\b|\badd.on\b|\b(?:buy|any)\s+\d|\b(?:live|video)\b|new\s+user|first\s+order|up\s+to/i.test(text)) return true;
+    }
+    return false;
   }
 
   function getDiscount(card) {
     // Current Shopee cards expose the displayed discount as an accessible label.
     for (const label of card.querySelectorAll('[aria-label]')) {
-      if (!usableBadge(label)) continue;
+      if (!usableBadge(label) || conditionalBadge(label, card)) continue;
       const value = parseDiscount(label.getAttribute('aria-label'));
       if (value !== null) {
         const parent = label.parentElement;
@@ -55,7 +69,7 @@
     for (const badge of card.querySelectorAll(
       '.shopee-badge__promotion, .shopee-badge--promotion, [data-sqe="discount"], [data-testid="discount-badge"]',
     )) {
-      if (!usableBadge(badge)) continue;
+      if (!usableBadge(badge) || conditionalBadge(badge, card)) continue;
       const percent = badge.querySelector('.percent');
       const value = parseDiscount(percent ? percent.textContent : badge.textContent, true);
       if (value !== null) return { value, badge };
@@ -63,7 +77,7 @@
 
     // Require an explicit discount marker. A title such as "100% cotton" is not a sale.
     for (const badge of card.querySelectorAll('span, div, small')) {
-      if (!usableBadge(badge) || badge.children.length > 0) continue;
+      if (!usableBadge(badge) || conditionalBadge(badge, card) || badge.children.length > 0) continue;
       const value = parseDiscount(badge.textContent);
       if (value !== null) return { value, badge };
     }
