@@ -14,6 +14,8 @@ Existing JSON backups remain compatible. Imported watches are paused with Discor
 
 52 unit/UI tests and JavaScript syntax checks passed. The installed Chromium journey verifies filters and CSV download, watch setup and observed alert receipt, comparison estimates, previous save/history/calculator/backup workflows, keyboard entry and 320px layout. Discord delivery tests use mocks; no live test messages are sent.
 
+The public ZIP's 31 entries match the source and unpacked files by SHA-256. The archive excludes the private webhook seed and token; the Git history scan also found neither.
+
 The browser journey uses a local listing fixture on the permitted Shopee origin. Live metadata coverage depends on Shopee's markup. Watches only update from browsing observations; there is no unattended crawler. Comparison resets on board reload, and its snapshots must be re-added to refresh. Manual variant prices are estimate references, not automatic variant tracking.
 
 ## Update
