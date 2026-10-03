@@ -1,5 +1,6 @@
 importScripts('catalog.js');
 importScripts('discord.js', 'discord-background.js');
+importScripts('share-cache.js');
 let pending = Promise.resolve();
 let deliveryPending = Promise.resolve();
 function serialize(task) {
@@ -52,6 +53,7 @@ async function handle(message, sender) {
   const before = JSON.stringify(board);
   const now = new Date().toISOString();
   const alerts = [];
+  const cacheProducts = [];
   switch (message.type) {
     case 'BUDOL_BOARD_GET': return board;
     case 'BUDOL_SAVE': {
@@ -61,6 +63,7 @@ async function handle(message, sender) {
       const saved = index < 0 ? { collection: 'Wishlist', notes: '', savedAt: now, history: [] } : board.products[index];
       const item = BudolCatalog.observe(saved, product, now);
       if (index < 0) board.products.push(item); else board.products[index] = item;
+      cacheProducts.push(product);
       break;
     }
     case 'BUDOL_OBSERVE': {
@@ -73,6 +76,7 @@ async function handle(message, sender) {
         const trigger = BudolCatalog.watchMatches(saved, product, now);
         if (!trigger && JSON.stringify(BudolCatalog.normalizeProduct(saved)) === JSON.stringify(product) && saved.lastSeen.slice(0, 10) === now.slice(0, 10)) return saved;
         const updated = BudolCatalog.observe(saved, product, now);
+        cacheProducts.push(product);
         if (trigger) {
           updated.watch = { ...saved.watch, lastAlertAt: now, lastAlertPrice: product.price };
           alerts.push({ id: `${product.id}:${now}`, product, at: now, reason: saved.watch.mode === 'target' ? 'Target price reached' : 'New observed low', watch: updated.watch, discord: saved.watch.discord ? 'Delivery not confirmed; check Discord before sending manually.' : 'Off' });
@@ -129,12 +133,15 @@ async function handle(message, sender) {
     await chrome.storage.local.set({ budolBoard: board, budolAlerts: [...inbox, ...alerts].slice(-100) });
     dispatchAlerts(alerts);
   } else if (JSON.stringify(board) !== before) await chrome.storage.local.set({ budolBoard: board });
+  // Image I/O runs outside the board writer so slow downloads cannot block editing.
+  for (const product of cacheProducts) BudolShareCache.capture(product).catch(() => {});
   return board;
 }
 
 async function mcpDiscord(message, sender) {
   if (sender.url !== chrome.runtime.getURL('mcp.html') || !/^[a-f0-9-]{36}$/.test(message.requestId || '')) throw new Error('Open the Budol MCP connector to use this action.');
-  const product = BudolCatalog.normalizeProduct(message.product);
+  const cached = message.cachedUrl ? await savedSnapshot(message.cachedUrl) : null;
+  const product = BudolCatalog.normalizeProduct(cached ? cached.product : message.product);
   await serialize(async () => {
     const stored = await chrome.storage.local.get('budolMcpReceipts');
     const receipts = Array.isArray(stored.budolMcpReceipts) ? stored.budolMcpReceipts.filter(row => row && typeof row.at === 'number').slice(-99) : [];
@@ -143,12 +150,53 @@ async function mcpDiscord(message, sender) {
     receipts.push({ id: message.requestId, url: product.url, at: Date.now() });
     await chrome.storage.local.set({ budolMcpReceipts: receipts });
   });
-  const share = { ...product };
-  for (const key of ['discount', 'image', 'originalPrice', 'rating', 'sold', 'shipping']) share[key] = message.product[key];
-  await BudolDiscordSend(BudolDiscord.payload(share));
+  if (cached) await sendSnapshot(cached);
+  else {
+    await BudolShareCache.capture(product).catch(() => {});
+    await BudolDiscordSend(BudolDiscord.payload(product));
+  }
   return { ok: true };
 }
+async function savedSnapshot(url) {
+  const identity = BudolCatalog.productIdentity(url);
+  if (!identity) throw new Error('Use a Shopee PH product URL.');
+  const cached = await BudolShareCache.get(identity.id).catch(() => null);
+  if (cached) return cached;
+  const stored = (await chrome.storage.local.get('budolBoard')).budolBoard;
+  const product = stored && BudolCatalog.validateBackup(stored).products.find(item => item.id === identity.id);
+  if (!product) throw new Error('No saved or cached snapshot. Save this product while it is visible on Shopee first.');
+  return { product, at: product.lastSeen, image: null };
+}
+async function sendSnapshot(snapshot) {
+  const payload = BudolDiscord.payload(snapshot.product);
+  // Cached sends never ask Discord or the browser to fetch a Shopee image URL.
+  delete payload.embeds[0].image;
+  payload.embeds[0].footer.text = `Budol • Saved snapshot from ${new Date(snapshot.at).toISOString()} • Prices/offers may have changed`;
+  if (!snapshot.image) payload.embeds[0].fields.push({ name: 'Image', value: 'No local image saved. Shared as text.' });
+  await BudolDiscordSend(payload, snapshot.image);
+}
+const savedSends = new Set();
+async function cacheAction(message, sender) {
+  if (![chrome.runtime.getURL('board.html'), chrome.runtime.getURL('mcp.html')].includes((sender.url || '').split(/[?#]/)[0])) throw new Error('Open Budol to manage saved shares.');
+  if (message.type === 'BUDOL_CACHE_LIST') return { ok: true, cache: await BudolShareCache.list() };
+  if (message.type === 'BUDOL_CACHE_CLEAR') {
+    if (sender.url.split(/[?#]/)[0] !== chrome.runtime.getURL('board.html') || !['images', 'all'].includes(message.scope)) throw new Error('Open Backups & storage to clear the cache.');
+    return { ok: true, cache: await BudolShareCache.clear(message.scope === 'images') };
+  }
+  const identity = BudolCatalog.productIdentity(message.url);
+  if (!identity) throw new Error('Use a Shopee PH product URL.');
+  if (savedSends.has(identity.id)) throw new Error('This item is already being sent.');
+  savedSends.add(identity.id);
+  try {
+    // Use the same persistent claim path as MCP; preserve the actual trusted caller check above.
+    await mcpDiscord({ cachedUrl: identity.url, requestId: message.requestId }, { url: chrome.runtime.getURL('mcp.html') });
+    return { ok: true };
+  } finally { savedSends.delete(identity.id); }
+}
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  if (['BUDOL_CACHE_LIST', 'BUDOL_CACHE_CLEAR', 'BUDOL_SEND_SAVED'].includes(message?.type)) {
+    cacheAction(message, sender).then(respond, error => respond({ ok: false, error: error.message })); return true;
+  }
   if (message?.type === 'BUDOL_MCP_DISCORD') {
     mcpDiscord(message, sender).then(respond, error => respond({ ok: false, error: error.message })); return true;
   }

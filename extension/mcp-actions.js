@@ -61,6 +61,7 @@
         return { alerts: BudolCatalog.normalizeAlerts(stored.budolAlerts).slice(-limit).reverse().map(alert => ({ product: publicProduct(alert.product), at: alert.at, reason: alert.reason })) };
       }
       case 'save_product': {
+        // Saving retains a local sharing snapshot and attempts to cache its image.
         check(true); const product = await exact(args); check(true);
         await request('BUDOL_SAVE', { product }); return { saved: product.url };
       }
@@ -70,11 +71,20 @@
         await request('BUDOL_REMOVE', { id: identity.id }); return { removed: identity.url };
       }
       case 'send_discord': {
+        if (args.tab_id === undefined) {
+          check(true);
+          if (!BudolCatalog.productIdentity(args.url)) throw new Error('Use a Shopee PH product URL.');
+          await request('BUDOL_MCP_DISCORD', { cachedUrl: args.url, requestId: job.id }); return { sent: args.url, source: 'saved snapshot' };
+        }
         check(true); const product = await exact(args);
         const details = await chrome.tabs.sendMessage(args.tab_id, { type: 'BUDOL_PRODUCT_DETAILS', url: product.url });
         if (BudolCatalog.productIdentity(details?.product?.url)?.id !== product.id) throw new Error('Product is no longer loaded. Refresh the product list before sending.');
         check(true);
         await request('BUDOL_MCP_DISCORD', { product: details.product, requestId: job.id }); return { sent: product.url };
+      }
+      case 'list_cached': {
+        const cache = (await request('BUDOL_CACHE_LIST')).cache;
+        return { items: cache.items.slice(offset, offset + limit), total: cache.items.length, imageBytes: cache.imageBytes, next_offset: offset + limit < cache.items.length ? offset + limit : null };
       }
       default: throw new Error('Unknown Budol tool.');
     }

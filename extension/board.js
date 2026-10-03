@@ -106,6 +106,35 @@
     anchor.href = product.url; anchor.target = '_blank'; anchor.rel = 'noreferrer';
     return anchor;
   }
+  function sendSavedButton(product) {
+    const button = element('button', 'Send to Discord'); button.type = 'button';
+    button.addEventListener('click', () => action(button, async () => {
+      const result = await chrome.runtime.sendMessage({ type: 'BUDOL_SEND_SAVED', url: product.url, requestId: crypto.randomUUID() });
+      if (!result?.ok) throw new Error(result?.error || 'Could not confirm delivery. Check Discord before retrying.');
+      notify('Saved snapshot sent to Discord.');
+    }));
+    return button;
+  }
+  async function refreshCache() {
+    const result = await chrome.runtime.sendMessage({ type: 'BUDOL_CACHE_LIST' });
+    if (!result?.ok || !result.cache) throw new Error(result?.error || 'Share cache unavailable. Reload Budol and try again.');
+    const cache = result.cache;
+    $('cache-usage').textContent = `${cache.items.length}/200 snapshots · ${(cache.imageBytes / 1048576).toFixed(2)} / 32 MiB of images`;
+    $('cache-items').replaceChildren();
+    for (const item of cache.items.slice(0, 20)) {
+      const row = element('article', undefined, 'cached-share');
+      row.append(link(item.product), element('p', `Captured ${date(item.capturedAt)} · ${item.imageStatus}`, 'hint'), sendSavedButton(item.product));
+      $('cache-items').append(row);
+    }
+    if (cache.items.length > 20) $('cache-items').append(element('p', 'Showing the 20 most recent snapshots. Saved products can also be sent from their cards.', 'hint'));
+  }
+  $('backup-panel').addEventListener('toggle', () => { if ($('backup-panel').open) refreshCache().catch(error => { $('cache-usage').textContent = error.message; }); });
+  $('refresh-cache').addEventListener('click', () => action($('refresh-cache'), refreshCache));
+  for (const [id, scope] of [['clear-images', 'images'], ['clear-cache', 'all']]) $(id).addEventListener('click', () => action($(id), async () => {
+    const result = await chrome.runtime.sendMessage({ type: 'BUDOL_CACHE_CLEAR', scope });
+    if (!result?.ok) throw new Error(result?.error || 'Cache could not be cleared.');
+    await refreshCache(); notify(scope === 'images' ? 'Downloaded images cleared. Saved product details remain.' : 'Share cache cleared. Saved products and settings remain.');
+  }));
   function offersView(product) {
     const offers = BudolCatalog.normalizeOffers(product.offers);
     const details = element('details', undefined, 'offers');
@@ -333,7 +362,7 @@
       $('undo-message').textContent = `Removed “${product.title}”.`;
       $('undo-notice').hidden = false; $('undo').focus(); notify('Product removed.');
     }));
-    actions.append(use, compareButton(product), remove); card.append(actions, watchView(product), historyView(product));
+    actions.append(use, compareButton(product), sendSavedButton(product), remove); card.append(actions, watchView(product), historyView(product));
     if (product.rangeHistory?.length) {
       const ranges = element('details'); rememberDisclosure(ranges, `${product.id}:ranges`);
       ranges.append(element('summary', `Listing ranges (${product.rangeHistory.length})`));

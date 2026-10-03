@@ -49,14 +49,22 @@
     ]);
   }
   // Shared by explicit context-menu sends and opted-in price watches. Never retries.
-  globalThis.BudolDiscordSend = async payload => {
+  globalThis.BudolDiscordSend = async (payload, imageBlob = null) => {
     const stored = await chrome.storage.local.get(['budolDiscordWebhook', 'budolDiscordRetryAt']);
     if (!stored.budolDiscordWebhook) throw new Error('Configure Discord in Budol settings.');
     const url = BudolDiscord.webhook(stored.budolDiscordWebhook);
     if (stored.budolDiscordRetryAt > Date.now()) throw new Error('Discord is rate-limiting requests. Try again later.');
     let result;
+    let body = JSON.stringify(payload), headers = { 'Content-Type': 'application/json' };
+    if (imageBlob) {
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' }[imageBlob.type];
+      if (!extension || imageBlob.size > 2 * 1024 * 1024) throw new Error('Cached image is invalid. Clear saved images and try again.');
+      const filename = `product.${extension}`;
+      payload = { ...payload, attachments: [{ id: 0, filename }], embeds: payload.embeds.map((embed, index) => index ? embed : { ...embed, image: { url: `attachment://${filename}` } }) };
+      body = new FormData(); body.append('payload_json', JSON.stringify(payload)); body.append('files[0]', imageBlob, filename); headers = {};
+    }
     try {
-      result = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(15000) });
+      result = await fetch(url, { method: 'POST', headers, body, credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(15000) });
     } catch { throw new Error('Could not confirm delivery. Check Discord before trying again to avoid a duplicate.'); }
     if (result.status === 429) {
       const data = await result.json().catch(() => ({}));
@@ -86,6 +94,7 @@
       try { response = await chrome.tabs.sendMessage(tabId, { type: 'BUDOL_CONTEXT_PRODUCT', linkUrl: info.linkUrl }, { frameId }); }
       catch { throw new Error('Refresh Shopee after updating Budol, then right-click the product again.'); }
       if (!response?.product) throw new Error('Right-click a product card, its image or its link on Shopee.');
+      await globalThis.BudolShareCache?.capture(response.product).catch(() => {});
       const payload = BudolDiscord.payload(response.product);
       const key = `${tabId}:${payload.embeds[0].url}`;
       if (Date.now() - (recentlySent.get(key) || 0) < 10000) throw new Error('This item was just sent. Wait a few seconds before sending it again.');
