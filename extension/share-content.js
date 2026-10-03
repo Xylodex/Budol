@@ -51,6 +51,11 @@
   document.addEventListener('contextmenu', capture, true);
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (!chrome.runtime?.id) return;
+    if (message?.type === 'BUDOL_PRODUCT_DETAILS') {
+      const identity = BudolCatalog.productIdentity(message.url);
+      const card = identity && Budol.findCards(document).find(card => BudolCatalog.readProduct(card)?.id === identity.id);
+      respond({ product: card ? details(card, BudolCatalog.readProduct(card)) : null });
+    }
     if (message?.type === 'BUDOL_CONTEXT_PRODUCT') {
       const expected = BudolCatalog.productIdentity(message.linkUrl || '');
       const valid = selected && Date.now() - selectedAt < 120000 && (!expected || expected.id === selected.id);

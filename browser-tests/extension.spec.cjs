@@ -19,7 +19,7 @@ const fixture = `<!doctype html><html><head><meta charset="utf-8"><title>Shopee 
 test('installed extension highlights listings and saves popup controls', async ({}, testInfo) => {
   const profile = await mkdtemp(resolve(tmpdir(), 'budol-test-'));
   const extension = resolve(profile, 'extension');
-  await cp(resolve(__dirname, '../extension'), extension, { recursive: true, filter: path => basename(path) !== 'discord-local.json' });
+  await cp(resolve(__dirname, '../extension'), extension, { recursive: true, filter: path => !['discord-local.json', 'mcp-local.json'].includes(basename(path)) });
   let context;
   try {
     context = await chromium.launchPersistentContext(profile, {
