@@ -106,6 +106,24 @@
     anchor.href = product.url; anchor.target = '_blank'; anchor.rel = 'noreferrer';
     return anchor;
   }
+  function offersView(product) {
+    const offers = BudolCatalog.normalizeOffers(product.offers);
+    const details = element('details', undefined, 'offers');
+    details.append(element('summary', offers.length ? `Offers shown · ${offers.length}` : 'Offers shown · not captured'));
+    if (product.priceNote) details.append(element('p', product.priceNote, 'hint'));
+    if (!offers.length) details.append(element('p', 'No readable item offers captured. Check the product page for current promotions.', 'hint'));
+    for (const offer of offers) {
+      const row = element('div', undefined, 'offer');
+      row.append(element('strong', BudolCatalog.OFFER_NAMES[offer.kind]), element('p', offer.text), element('p', BudolCatalog.offerExplanation(offer, product), 'hint'), element('small', `Source: ${offer.scope === 'product-page' ? 'product page' : 'item card'}`, 'hint'));
+      details.append(row);
+    }
+    if (offers.length) {
+      const observed = product.observedAt || product.lastSeen;
+      details.append(element('p', `${observed ? `Captured ${date(observed)}. ` : ''}Offers can expire or depend on your account, variant and checkout. Benefits are not added together or deducted from the listing price.`, 'hint'));
+      if (offers.some(o => o.kind === 'flash') && offers.some(o => o.kind === 'bundle')) details.append(element('p', 'Shopee excludes ongoing Flash Deal items from Bundle Deals. Check which offer applies at checkout.', 'hint'));
+    }
+    return details;
+  }
   function compareButton(product) {
     const button = element('button', 'Compare'); button.type = 'button'; button.dataset.compareId = product.id;
     button.addEventListener('click', () => {
@@ -147,7 +165,7 @@
       fact('Sold', product.soldText || (product.soldValue == null ? 'Unknown' : String(product.soldValue)));
       fact('Seller', product.seller || 'Unknown'); fact('Ships from', product.location || 'Unknown');
       fact('Observed', product.observedAt || product.lastSeen ? date(product.observedAt || product.lastSeen) : 'Time unavailable');
-      card.append(facts);
+      card.append(facts, offersView(product));
       const form = element('form'); form.setAttribute('aria-label', `Estimate for ${product.title}`);
       const output = element('p', undefined, 'comparison-total'); output.setAttribute('role', 'status');
       const update = () => {
@@ -188,6 +206,7 @@
       card.dataset.productId = product.id;
       card.tabIndex = -1;
       card.append(element('span', product.discount === null ? 'No discount shown' : `${product.discount}% off`, 'discount-tag'), link(product), element('p', `${BudolCatalog.priceLabel(product)} · listing price`));
+      card.append(offersView(product));
       const saved = board.products.some(item => item.id === product.id);
       const button = element('button', saved ? 'Saved to board' : 'Save to board');
       button.disabled = saved;
@@ -279,6 +298,7 @@
     card.dataset.productId = product.id;
     card.classList.toggle('price-selected', product.id === priceProductId);
     card.append(title, element('p', product.collection, 'collection-badge'), element('div', BudolCatalog.priceLabel(product), 'product-price'), element('p', `Listing last observed ${date(product.lastSeen)}`, 'hint'));
+    card.append(offersView(product));
     if (product.price !== null && product.history.length >= 2) {
       const first = product.history[0].price;
       const change = product.price - first;

@@ -30,7 +30,9 @@
     // Only use page metadata when it identifies this exact product, not a recommendation.
     if (BudolCatalog.productIdentity(meta('og:url'))?.id !== identity.id) return { ...identity, title: 'Shopee product', price: null, scope: 'listing', currency: 'PHP' };
     const currency = meta('product:price:currency') || meta('og:price:currency');
-    return { ...identity, title: meta('og:title') || 'Shopee product', image: BudolDiscord.image(meta('og:image')), price: currency === 'PHP' ? BudolCatalog.money(meta('product:price:amount') || meta('og:price:amount')) : null, currency: 'PHP', scope: 'listing' };
+    const title = [...document.querySelectorAll('h1')].find(BudolCatalog.visible);
+    const offers = BudolCatalog.readDetailOffers(title);
+    return { ...identity, title: meta('og:title') || 'Shopee product', image: BudolDiscord.image(meta('og:image')), price: currency === 'PHP' ? BudolCatalog.money(meta('product:price:amount') || meta('og:price:amount')) : null, offers, currency: 'PHP', scope: 'listing' };
   }
   function capture(event) {
     if (!chrome.runtime?.id) { document.removeEventListener('contextmenu', capture, true); return; }

@@ -58,7 +58,7 @@
     let kind = null;
     if (/cashback|\bcoins?\s*(?:reward|back|cashback)|\b(?:earn|get)\s+(?:up to\s+)?\d+\s*coins?/i.test(text)) kind = 'cashback';
     else if (/free shipping|shipping (?:voucher|discount|offer)|(?:voucher|discount) (?:on|for) shipping/i.test(text)) kind = 'shipping';
-    else if (/spaylater|shopeepay|\bbank\b.*(?:voucher|off|discount)|(?:voucher|off|discount).*\b(?:bank|credit card|payment)\b/i.test(text)) kind = 'payment';
+    else if (/\b(?:spaylater|shopeepay|bank|credit card|payment)\b.*(?:voucher|off|discount|deal|promo)|(?:voucher|off|discount|deal|promo).*\b(?:spaylater|shopeepay|bank|credit card|payment)\b/i.test(text)) kind = 'payment';
     else if (/\b(?:live|video)\b.*(?:voucher|off|discount|only)|(?:voucher|off|discount).*\b(?:live|video)\b/i.test(text)) kind = 'channel';
     else if (/\badd[- ]on (?:deal|discount|offer)|buy.*(?:free gift|gift with purchase)/i.test(text)) kind = 'addon';
     else if (/bundle deal|\b(?:buy|any)\s+\d+.*(?:off|save|discount|get)|buy (?:one|\d+) get (?:one|\d+)/i.test(text)) kind = 'bundle';
@@ -83,10 +83,15 @@
     const offers = raw.slice(0, 24).map(value => parseOffer(value?.text, value?.scope)).filter(Boolean);
     return [...new Map(offers.map(offer => [`${offer.kind}:${offer.text.toLowerCase()}`, offer])).values()].slice(0, 12);
   }
+  function visibleText(node, cache = new WeakMap()) {
+    if (!cache.has(node)) cache.set(node, [...node.childNodes].map(child => child.nodeType === 3 ? child.textContent : visible(child) && !child.matches('script, style, template, [data-sqe="name"], [class*="line-clamp-2"], h1') ? visibleText(child, cache) : '').join(' ').replace(/\s+/g, ' ').trim());
+    return cache.get(node);
+  }
   function readOffers(root, scope = 'item-card') {
     const texts = [];
     const excluded = '[data-sqe="name"], [class*="line-clamp-2"], h1, script, style, template, [data-budol-ignore]';
-    const textOf = node => [...node.childNodes].map(child => child.textContent).join(' ').replace(/\s+/g, ' ').trim();
+    const cache = new WeakMap();
+    const textOf = node => visibleText(node, cache);
     const combinedOffers = node => [...node.children].filter(child => parseOffer(textOf(child), scope)).length > 1;
     for (const node of root.querySelectorAll('span, div, small, p, li, [aria-label]')) {
       if (!visible(node) || node.closest(excluded) || combinedOffers(node) || node.querySelector('h1, [data-sqe="name"], [class*="line-clamp-2"], input, [aria-label="Product card"]')) continue;
@@ -103,8 +108,35 @@
       }
       texts.push({ text, scope });
     }
-    const offers = normalizeOffers(texts);
-    return offers.filter(offer => !offers.some(other => other !== offer && other.kind === offer.kind && other.text.length > offer.text.length && other.text.toLowerCase().includes(offer.text.toLowerCase())));
+    const unique = [...new Map(texts.map(offer => [offer.text.toLowerCase(), parseOffer(offer.text, scope)])).values()].filter(Boolean);
+    return unique.filter(offer => !unique.some(other => other !== offer && other.kind === offer.kind && other.text.length > offer.text.length && other.text.toLowerCase().includes(offer.text.toLowerCase()))).slice(0, 12);
+  }
+  function conditionalPrice(root) {
+    const cache = new WeakMap();
+    return [...root.querySelectorAll('span, div, small, p')].some(node => visible(node) &&
+      !node.closest('[data-sqe="name"], [class*="line-clamp-2"], h1') && node.textContent.length < 180 &&
+      /after (?:voucher|coupon)|(?:^\s*|price\s*|₱\s*[\d,.]+\s*)with (?:voucher|coupon|spaylater|shopeepay)|(?:live|video)[- ]only price/i.test(visibleText(node, cache)));
+  }
+  function readDetailOffers(title) {
+    if (!title || !visible(title)) return [];
+    const offers = [];
+    // Inspect explicitly labelled public promotion rows near this product's title.
+    // Never scan the whole document, delivery addresses, or recommendation cards.
+    for (let panel = title.parentElement, depth = 0; panel && !panel.matches('body, main, html') && depth < 4; panel = panel.parentElement, depth++) {
+      for (const label of panel.querySelectorAll('label, span, div, h2, h3')) {
+        if (label.children.length || !visible(label) || label.closest('[aria-label="Product card"], [data-sqe="item"], .shopee-item-card, header, nav, footer') || !/^(?:shop vouchers?|vouchers?|promotions?|bundle deals?|add[- ]on deals?|flash deals?|coins cashback)$/i.test(label.textContent.trim())) continue;
+        const row = label.parentElement;
+        if (row.contains(title) || row.textContent.length > 400 || row.querySelector('input, h1, [aria-label="Product card"], [data-sqe="item"], .shopee-item-card') || /(?:deliver to|shipping to|address)/i.test(row.textContent)) continue;
+        const found = readOffers(row, 'product-page');
+        // A heading alone is not evidence of an offer.
+        const meaningful = found.filter(offer => offer.text.toLowerCase() !== label.textContent.trim().toLowerCase());
+        const combined = visibleText(row);
+        const fallback = combined !== label.textContent.trim() ? parseOffer(combined, 'product-page') : null;
+        offers.push(...(meaningful.length ? meaningful : fallback ? [fallback] : []));
+      }
+      if (offers.length) break;
+    }
+    return normalizeOffers(offers);
   }
   function offerExplanation(offer, product) {
     const effect = { voucher: 'Checkout discount if eligible.', shipping: 'Shipping benefit; does not reduce the item price.', cashback: 'Reward for later use; does not reduce this payment.', bundle: 'Requires the qualifying item combination or quantity.', addon: 'Requires a qualifying main item or spend.', flash: 'Limited-time listing offer; check the active slot and stock.', payment: 'Requires the stated payment method.', channel: 'Requires the stated Live or Video purchase route.', campaign: 'Campaign claim; item participation and terms need checking.' }[offer.kind];
@@ -136,18 +168,17 @@
       parent.querySelectorAll('del, s, [hidden], [aria-hidden="true"]').forEach(node => node.remove());
       price = parsePrice(parent.textContent);
       priceRange = parseRange(parent.textContent);
-      const context = marker.parentElement.textContent.replace(/\s+/g, ' ').trim();
-      if (/after (?:voucher|coupon)|with (?:voucher|coupon|spaylater|shopeepay)|(?:live|video)[- ]only price/i.test(context)) { price = null; priceRange = null; priceNote = 'Shown price requires an offer; confirm eligibility on Shopee.'; }
     } else {
       const prices = [...card.querySelectorAll('span, div')]
         .filter(node => visible(node) && /₱|PHP/i.test(node.textContent) &&
           ![...node.children].some(child => /₱|PHP/i.test(child.textContent)))
-        .map(node => parsePrice(node.textContent));
+        .map(node => parseOffer(node.textContent) ? null : parsePrice(node.textContent));
       const unique = [...new Set(prices)];
       if (unique.length === 1) price = unique[0];
       const ranges = [...card.querySelectorAll('span, div')].filter(node => visible(node) && ![...node.children].some(child => /₱|PHP/i.test(child.textContent))).map(node => parseRange(node.textContent)).filter(Boolean);
       if (price === null && new Set(ranges.map(r => JSON.stringify(r))).size === 1 && prices.every(p => p === null)) priceRange = ranges[0];
     }
+    if (conditionalPrice(card)) { price = null; priceRange = null; priceNote = 'Shown price requires an offer; confirm eligibility on Shopee.'; }
     if (priceRange?.min === priceRange?.max && priceRange) { price = priceRange.min; priceRange = null; }
     return { ...identity, title, price, priceRange, priceNote, offers: readOffers(card), ...metadata(card), discount: globalThis.Budol.getDiscount(card)?.value ?? null, currency: 'PHP', scope: 'listing' };
   }
@@ -251,11 +282,11 @@
       return '"' + text.replaceAll('"', '""') + '"';
     };
     const amount = value => value == null ? '' : (value / 100).toFixed(2);
-    const rows = [['Title', 'URL', 'Currency', 'Listing price', 'Range minimum', 'Range maximum', 'Advertised discount percent', 'Rating', 'Sold count', 'Sold label', 'Seller', 'Ships from', 'Observed at (UTC)']];
+    const rows = [['Title', 'URL', 'Currency', 'Listing price', 'Range minimum', 'Range maximum', 'Advertised discount percent', 'Rating', 'Sold count', 'Sold label', 'Seller', 'Ships from', 'Observed at (UTC)', 'Price conditions', 'Offers shown (eligibility unverified)']];
     for (const raw of products) {
       const p = normalizeProduct(raw);
       const at = raw.observedAt || raw.lastSeen;
-      rows.push([p.title, p.url, 'PHP', amount(p.price), amount(p.priceRange?.min), amount(p.priceRange?.max), typeof raw.discount === 'number' && raw.discount >= 0 && raw.discount <= 100 ? raw.discount : '', p.ratingValue, p.soldValue, p.soldText, p.seller, p.location, typeof at === 'string' && Number.isFinite(Date.parse(at)) ? new Date(at).toISOString() : '']);
+      rows.push([p.title, p.url, 'PHP', amount(p.price), amount(p.priceRange?.min), amount(p.priceRange?.max), typeof raw.discount === 'number' && raw.discount >= 0 && raw.discount <= 100 ? raw.discount : '', p.ratingValue, p.soldValue, p.soldText, p.seller, p.location, typeof at === 'string' && Number.isFinite(Date.parse(at)) ? new Date(at).toISOString() : '', p.priceNote, p.offers.map(offer => `${OFFER_NAMES[offer.kind]}: ${offer.text} (${offer.status}; ${offer.scope})`).join(' | ')]);
     }
     return '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
   }
@@ -306,5 +337,5 @@
       (filters.rating === null || (product.ratingValue != null && product.ratingValue >= filters.rating)) &&
       (filters.sold === null || (product.soldValue != null && product.soldValue >= filters.sold));
   }
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, normalizeAlerts, watchMatches, dealsCsv, OFFER_NAMES, parseOffer, readOffers, normalizeOffers, offerExplanation });
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, normalizeAlerts, watchMatches, dealsCsv, OFFER_NAMES, parseOffer, readOffers, readDetailOffers, conditionalPrice, normalizeOffers, offerExplanation });
 })();

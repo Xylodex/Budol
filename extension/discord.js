@@ -29,9 +29,13 @@
       const value = clean(raw[key] || (key === 'rating' && product.ratingValue != null ? `${product.ratingValue}/5` : key === 'sold' ? product.soldText : ''));
       if (value) fields.push({ name, value, inline: key !== 'shipping' });
     }
+    if (product.priceNote) fields.push({ name: 'Price conditions', value: clean(product.priceNote) });
+    for (const offer of product.offers.slice(0, 6)) fields.push({ name: `${BudolCatalog.OFFER_NAMES[offer.kind]} · ${offer.status}`, value: `${clean(offer.text, 250)}\n${clean(BudolCatalog.offerExplanation(offer, product), 220)}\nSource: ${offer.scope === 'product-page' ? 'product page' : 'item card'}` });
+    if (product.offers.length > 6) fields.push({ name: 'More offers', value: `${product.offers.length - 6} additional offers captured. Open Shopee to review all terms.` });
+    if (product.offers.some(o => o.kind === 'flash') && product.offers.some(o => o.kind === 'bundle')) fields.push({ name: 'Offer combination', value: 'Ongoing Flash Deal items are excluded from Bundle Deals. Check the applicable offer at checkout.' });
     const embed = {
       title: clean(product.title, 240), url: product.url, color: 0x165c9c,
-      description: 'Confirm your variant, availability, shipping and voucher terms on Shopee. Advertised discounts are not verified savings.',
+      description: 'Confirm your variant, availability, shipping and voucher terms on Shopee. Advertised discounts are not verified savings. Offer benefits are not added together or deducted from the listing price.',
       fields, footer: { text: 'Budol • Shopee PH • Snapshot at sharing time' }, timestamp: now.toISOString(),
     };
     const photo = image(raw.image);

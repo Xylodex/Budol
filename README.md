@@ -2,6 +2,8 @@
 
 Find discounted products on Shopee Philippines. Budol is a Chrome and Edge extension that highlights matching listings and puts the highest advertised discounts first in a local Deals page.
 
+Version **1.10.0** adds **Offers shown** to Deals, Saved and Compare: vouchers, shipping, Coins/cashback, bundles, add-ons, Flash Deals, payment/channel offers and campaign claims. It keeps captured conditions separate from listing prices and includes them in Discord shares and exports. See the [Shopee promotion research and limits](docs/SHOPEE-PROMOTIONS.md).
+
 Version **1.9.0** adds listing ranges, keyword/budget/rating/sales filters, observed price watches, a four-product comparison, and CSV export. The Genshin-inspired menus and blue ₱1,000 palette remain, with original local artwork. The [implementation plan](docs/IMPLEMENTATION-PLAN-1.9.md) records scope; the [GitHub research](docs/GITHUB-FEATURE-RESEARCH.md) records the projects that informed it. No external repository code was copied.
 
 Version **1.9.1** fixes delivery and refresh races, preserves watch/variant drafts, validates ambiguous sales counts, and recovers from damaged alert entries. See the [edge-case audit](docs/EDGE-CASE-AUDIT.md) for coverage and limits.
@@ -33,13 +35,15 @@ Open **Filter products** for required/excluded keywords (comma-separated), maxim
 
 **Export filtered deals (CSV)** downloads every match, including cards beyond the first six. It includes canonical links, price/range bounds, advertised discounts, available listing metadata and capture time. Text is quoted, UTF-8 encoded, and protected against formula-leading spreadsheet cells. Notes and webhook settings are excluded. Use JSON backups to restore saved products; CSV is for analysis.
 
-Budol reads currently loaded listing cards. The discount is Shopee's advertised claim, not a verified saving. It does not search Shopee's entire catalog, bypass verification, or load more products automatically. Direct product-detail capture is not supported. Shopee markup changes may require an extension update.
+Budol reads currently loaded listing cards. The discount is Shopee's advertised claim, not a verified saving. It does not search Shopee's entire catalog, bypass verification, or load more products automatically. Deals and saved observations come from listing cards; right-click sharing has a limited product-page reader. Shopee markup changes may require an extension update.
+
+Open **Offers shown** on a product for its captured promotion wording, minimum spend, caps and restrictions. Eligibility remains unverified; benefits are never automatically stacked or deducted from the listing price. Coins are later rewards and shipping benefits stay separate. Prices explicitly labelled “after voucher” are excluded from budget matches and watches. An uncaptured offer may still exist on Shopee. CSV and JSON include this evidence.
 
 ## Send a product to Discord
 
 Right-click a Shopee product card, image, or link and choose **Send item to Discord**. A blue message on Shopee reports sending, success, or failure; the extension badge also reports status. This action sends immediately. Automatic price alerts require separate opt-in on each saved product's watch.
 
-The embed contains a clickable product title, photo, listing price, advertised discount, crossed-out price, and readable rating/sold/seller/location/shipping details when available. Missing details are omitted. Product-detail pages use matching Open Graph metadata when present and otherwise share the product link with an unknown price. Budol never guesses stock, voucher eligibility, delivery dates, or variant prices.
+The embed contains a clickable product title, photo, listing price, advertised discount, crossed-out price, and readable rating/sold/seller/location/shipping details when available. It also includes up to six captured offers with eligibility unverified. Missing details are omitted. Product-detail pages use matching Open Graph metadata and bounded public promotion rows near the product title when present; otherwise they share the product link with an unknown price. Budol never guesses stock, voucher eligibility, delivery dates, or variant prices.
 
 Use **Discord settings** in the popup (or the extension's Options page) to save or replace a webhook. Saving does not send a message. Disconnect clears the saved webhook. For forum channels, add a valid thread_id query parameter. A missing webhook opens settings on the first send attempt.
 

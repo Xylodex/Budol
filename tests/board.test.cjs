@@ -29,6 +29,21 @@ async function setup(t, products = [], candidates = [], fail = '', restoredDraft
   return { ...browser, document: browser.dom.window.document, messages };
 }
 
+test('offers are accessible in discovery, saved items and comparison without reducing prices', async t => {
+  const item = { ...saved(1, 'Keyboard', 29900), offers: [{ text: 'Shop voucher 10% off Min spend ₱500' }, { text: '20% Coins cashback' }, { text: 'Flash Deal' }, { text: 'Bundle Deal: Any 3 enjoy 15% off' }] };
+  const { document } = await setup(t, [item], [item]);
+  for (const selector of ['#candidates', '#saved']) {
+    const offers = document.querySelector(`${selector} .offers`);
+    assert.equal(offers.open, false); assert.match(offers.textContent, /Offers shown · 4/);
+    assert.match(offers.textContent, /one item at the shown price is below/);
+    assert.match(offers.textContent, /does not reduce this payment/);
+    assert.match(offers.textContent, /excludes ongoing Flash Deal/);
+  }
+  document.querySelector('#candidates [data-compare-id]').click();
+  assert.match(document.querySelector('#comparison .offers').textContent, /Eligibility unverified/);
+  assert.equal(document.querySelector('#comparison form').elements.price.value, '299.00');
+});
+
 test('board sorts unknown prices last, distinguishes no results, and clears filters', async t => {
   const { document, dom } = await setup(t, [saved(1, 'Unknown', null), saved(2, 'Expensive', 20000), saved(3, 'Affordable', 10000)]);
   const sort = document.getElementById('sort'); sort.value = 'price'; sort.dispatchEvent(new dom.window.Event('change'));

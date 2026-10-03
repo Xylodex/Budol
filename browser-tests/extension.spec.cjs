@@ -13,7 +13,7 @@ const fixture = `<!doctype html><html><head><meta charset="utf-8"><title>Shopee 
   </style></head><body><h1>Shopee product card test</h1><p>Threshold is at least 50%.</p><main>
   ${[40, 50, 51, 80].map((discount, index) => `<div role="group" aria-label="Product card" id="card-${discount}">
     <a href="/Example-product-i.123.${index + 1}"><div class="image"><img alt="Product ${index + 1}"></div><div class="details"><div class="line-clamp-2">Example product ${index + 1}</div>
-    <div class="price"><span aria-label="promotion price"></span><span class="amount">₱299</span></div><span class="discount"><span data-testid="a11y-label" aria-label="-${discount}%"></span>-${discount}%</span></div></a></div>`).join('')}
+    <div class="price"><span aria-label="promotion price"></span><span class="amount">₱299</span></div><span class="discount"><span data-testid="a11y-label" aria-label="-${discount}%"></span>-${discount}%</span><div>Shop voucher 10% off Min spend ₱500</div><div>20% Coins cashback</div></div></a></div>`).join('')}
   </main></body></html>`;
 
 test('installed extension highlights listings and saves popup controls', async ({}, testInfo) => {
@@ -112,6 +112,16 @@ test('installed extension highlights listings and saves popup controls', async (
     board.on('pageerror', error => errors.push(error.message));
     await expect(board.locator('#candidates .candidate')).toHaveCount(2);
     await expect(board.locator('#candidates .candidate').first()).toContainText('80% off');
+    const offers = board.locator('#candidates .candidate').first().locator('.offers');
+    await offers.locator('summary').focus(); await board.keyboard.press('Enter');
+    await expect(offers).toHaveAttribute('open', '');
+    await expect(offers).toContainText('one item at the shown price is below');
+    await expect(offers).toContainText('does not reduce this payment');
+    await board.setViewportSize({ width: 320, height: 800 });
+    await expect(board.locator('body')).toHaveJSProperty('scrollWidth', 320);
+    await board.screenshot({ path: testInfo.outputPath('offers-mobile.png'), fullPage: true });
+    await board.setViewportSize({ width: 1200, height: 900 });
+    await offers.locator('summary').click();
     await board.locator('.deal-filter-panel > summary').click();
     await board.getByLabel('Include every keyword', { exact: true }).fill('product 4');
     await expect(board.locator('#candidates .candidate')).toHaveCount(1);
@@ -120,6 +130,7 @@ test('installed extension highlights listings and saves popup controls', async (
     const csvDownload = await csvEvent; const csvPath = testInfo.outputPath('deals.csv'); await csvDownload.saveAs(csvPath);
     const csv = await readFile(csvPath, 'utf8');
     expect(csv).toContain('Example product 4'); expect(csv).not.toContain('Example product 3'); expect(csv).toContain('https://shopee.ph/product/123/4');
+    expect(csv).toContain('Shop voucher 10% off Min spend ₱500'); expect(csv).toContain('Eligibility unverified');
     await board.getByRole('button', { name: 'Clear product filters', exact: true }).click();
     await expect(board.locator('#candidates .candidate')).toHaveCount(2);
     await board.locator('.deal-filter-panel > summary').click();
