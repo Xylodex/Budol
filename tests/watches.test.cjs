@@ -24,7 +24,9 @@ test('worker claims alerts before delivery, survives restart, rejects page confi
       storage: { local: { get: async () => structuredClone(storage), set: async v => Object.assign(storage, structuredClone(v)) } },
     }, fetch: async () => { posts++; assert.equal(storage.budolAlerts.length, 1); assert.ok(storage.budolBoard.products[0].watch.lastAlertAt); throw new Error('Timeout'); } });
     context.importScripts = (...files) => files.forEach(f => vm.runInContext(source(f), context)); vm.runInContext(source('background.js'), context);
-    return (message, sender = { url: 'chrome-extension://budol/board.html' }) => new Promise(resolve => listener(message, sender, resolve));
+    const send = (message, sender = { url: 'chrome-extension://budol/board.html' }) => new Promise(resolve => listener(message, sender, resolve));
+    send.drain = () => vm.runInContext('deliveryPending', context);
+    return send;
   }
   let send = worker(); const product = { url: 'https://shopee.ph/product/1/2', title: 'Item', price: 20000, currency: 'PHP', scope: 'listing' };
   await send({ type: 'BUDOL_SAVE', product }); const id = storage.budolBoard.products[0].id;
@@ -34,6 +36,7 @@ test('worker claims alerts before delivery, survives restart, rejects page confi
   const page = { url: 'https://shopee.ph/test' };
   assert.equal((await send({ type: 'BUDOL_WATCH', id, watch: null }, page)).ok, false);
   assert.equal((await send({ type: 'BUDOL_OBSERVE', products: [{ ...product, price: 9000 }] }, page)).ok, true);
+  await send.drain();
   assert.equal(posts, 1); assert.equal(notices, 1); assert.match(storage.budolAlerts[0].discord, /not confirm delivery/);
   send = worker(); await send({ type: 'BUDOL_OBSERVE', products: [{ ...product, price: 8000 }] }, page); assert.equal(posts, 1);
   const backup = structuredClone(storage.budolBoard); backup.products[0].url = 'https://shopee.ph/product/1/3';

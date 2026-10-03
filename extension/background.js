@@ -1,10 +1,47 @@
 importScripts('catalog.js');
 importScripts('discord.js', 'discord-background.js');
 let pending = Promise.resolve();
+let deliveryPending = Promise.resolve();
+function serialize(task) {
+  const result = pending.then(task);
+  pending = result.catch(() => {});
+  return result;
+}
 const empty = () => ({ version: 1, products: [] });
 chrome.notifications?.onClicked?.addListener(id => {
   if (id.startsWith('shopee:')) chrome.tabs.create({ url: chrome.runtime.getURL('board.html#alerts-panel') });
 });
+
+function dispatchAlerts(alerts) {
+  deliveryPending = deliveryPending.then(async () => {
+    for (const alert of alerts) {
+      let outcome = alert.discord;
+      try {
+        // Recheck intent at dispatch, after earlier deliveries or board edits finish.
+        const eligible = await serialize(async () => {
+          const stored = await chrome.storage.local.get(['budolBoard', 'budolAlerts']);
+          const watch = stored.budolBoard?.products.find(p => p.id === alert.product.id)?.watch;
+          const present = BudolCatalog.normalizeAlerts(stored.budolAlerts).some(row => row.id === alert.id);
+          return present && watch && !watch.paused && watch.lastAlertAt === alert.at && watch.mode === alert.watch.mode && watch.target === alert.watch.target ? { discord: watch.discord && alert.watch.discord } : null;
+        });
+        if (!eligible) outcome = alert.discord === 'Off' ? 'Off' : 'Not sent: watch changed, paused, removed, or alert cleared.';
+        else {
+          try { await chrome.notifications.create(alert.id, { type: 'basic', iconUrl: 'icons/icon128.png', title: `Budol — ${alert.reason}`, message: `${alert.product.title}: ${BudolCatalog.format(alert.product.price)}` }); } catch { /* The inbox remains available if OS notifications are disabled. */ }
+          if (eligible.discord) {
+            await BudolDiscordSend(BudolDiscord.payload(alert.product)); outcome = 'Sent';
+          } else if (alert.discord !== 'Off') outcome = 'Not sent: Discord alerts were disabled.';
+        }
+      } catch (error) { outcome = error.message; }
+      await serialize(async () => {
+        const stored = await chrome.storage.local.get('budolAlerts');
+        const inbox = BudolCatalog.normalizeAlerts(stored.budolAlerts);
+        const row = inbox.find(row => row.id === alert.id);
+        // Clearing history during a send must not bring deleted entries back.
+        if (row) { row.discord = outcome; await chrome.storage.local.set({ budolAlerts: inbox }); }
+      });
+    }
+  }).catch(() => { /* Durable unconfirmed receipts remain; never replay a delivery. */ });
+}
 
 async function handle(message, sender) {
   const extensionPage = !sender.tab?.url?.startsWith('https:') && sender.url?.startsWith(chrome.runtime.getURL(''));
@@ -38,7 +75,7 @@ async function handle(message, sender) {
         const updated = BudolCatalog.observe(saved, product, now);
         if (trigger) {
           updated.watch = { ...saved.watch, lastAlertAt: now, lastAlertPrice: product.price };
-          alerts.push({ id: `${product.id}:${now}`, product, at: now, reason: saved.watch.mode === 'target' ? 'Target price reached' : 'New observed low', discord: saved.watch.discord ? 'Delivery not confirmed; check Discord before sending manually.' : 'Off' });
+          alerts.push({ id: `${product.id}:${now}`, product, at: now, reason: saved.watch.mode === 'target' ? 'Target price reached' : 'New observed low', watch: updated.watch, discord: saved.watch.discord ? 'Delivery not confirmed; check Discord before sending manually.' : 'Off' });
         }
         return updated;
       });
@@ -87,17 +124,10 @@ async function handle(message, sender) {
     default: throw new Error('Unknown Budol action.');
   }
   if (alerts.length) {
-    const inbox = (await chrome.storage.local.get('budolAlerts')).budolAlerts || [];
+    const inbox = BudolCatalog.normalizeAlerts((await chrome.storage.local.get('budolAlerts')).budolAlerts);
     // Persist the claim and receipt placeholder together before any external effect.
     await chrome.storage.local.set({ budolBoard: board, budolAlerts: [...inbox, ...alerts].slice(-100) });
-    for (const alert of alerts) {
-      try { await chrome.notifications.create(alert.id, { type: 'basic', iconUrl: 'icons/icon128.png', title: `Budol — ${alert.reason}`, message: `${alert.product.title}: ${BudolCatalog.format(alert.product.price)}` }); } catch { /* The local inbox remains available when OS notifications are disabled. */ }
-      if (alert.discord !== 'Off') {
-        try { await BudolDiscordSend(BudolDiscord.payload(alert.product)); alert.discord = 'Sent'; }
-        catch (error) { alert.discord = error.message; }
-      }
-    }
-    await chrome.storage.local.set({ budolAlerts: [...inbox, ...alerts].slice(-100) });
+    dispatchAlerts(alerts);
   } else if (JSON.stringify(board) !== before) await chrome.storage.local.set({ budolBoard: board });
   return board;
 }
@@ -105,8 +135,6 @@ async function handle(message, sender) {
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (!['BUDOL_BOARD_GET', 'BUDOL_SAVE', 'BUDOL_OBSERVE', 'BUDOL_EDIT', 'BUDOL_REMOVE', 'BUDOL_IMPORT', 'BUDOL_VARIANT', 'BUDOL_WATCH', 'BUDOL_ALERTS_CLEAR'].includes(message?.type)) return;
   // One writer prevents concurrent tabs from losing each other's saves.
-  pending = pending.then(() => handle(message, sender));
-  pending.then(board => respond({ ok: true, board }), error => respond({ ok: false, error: error.message }));
-  pending = pending.catch(() => {});
+  serialize(() => handle(message, sender)).then(board => respond({ ok: true, board }), error => respond({ ok: false, error: error.message }));
   return true;
 });
