@@ -132,7 +132,24 @@ async function handle(message, sender) {
   return board;
 }
 
+async function mcpDiscord(message, sender) {
+  if (sender.url !== chrome.runtime.getURL('mcp.html') || !/^[a-f0-9-]{36}$/.test(message.requestId || '')) throw new Error('Open the Budol MCP connector to use this action.');
+  const product = BudolCatalog.normalizeProduct(message.product);
+  await serialize(async () => {
+    const stored = await chrome.storage.local.get('budolMcpReceipts');
+    const receipts = Array.isArray(stored.budolMcpReceipts) ? stored.budolMcpReceipts.filter(row => row && typeof row.at === 'number').slice(-99) : [];
+    if (receipts.some(row => row.id === message.requestId || row.url === product.url && Date.now() - row.at < 60000)) throw new Error('This item was recently submitted through MCP. Check Discord before retrying.');
+    // Persist before posting, including uncertain outcomes. Restarts never replay sends.
+    receipts.push({ id: message.requestId, url: product.url, at: Date.now() });
+    await chrome.storage.local.set({ budolMcpReceipts: receipts });
+  });
+  await BudolDiscordSend(BudolDiscord.payload({ ...product, discount: message.product.discount }));
+  return { ok: true };
+}
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  if (message?.type === 'BUDOL_MCP_DISCORD') {
+    mcpDiscord(message, sender).then(respond, error => respond({ ok: false, error: error.message })); return true;
+  }
   if (!['BUDOL_BOARD_GET', 'BUDOL_SAVE', 'BUDOL_OBSERVE', 'BUDOL_EDIT', 'BUDOL_REMOVE', 'BUDOL_IMPORT', 'BUDOL_VARIANT', 'BUDOL_WATCH', 'BUDOL_ALERTS_CLEAR'].includes(message?.type)) return;
   // One writer prevents concurrent tabs from losing each other's saves.
   serialize(() => handle(message, sender)).then(board => respond({ ok: true, board }), error => respond({ ok: false, error: error.message }));

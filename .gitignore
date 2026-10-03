@@ -3,6 +3,7 @@ dist/
 artifacts/
 *.log
 **/discord-local.json
+**/mcp-local.json
 K.zip
 .env
 .env.*

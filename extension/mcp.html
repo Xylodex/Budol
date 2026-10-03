@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Budol — Codex MCP</title><link rel="stylesheet" href="board.css"><link rel="stylesheet" href="game-ui.css"><link rel="stylesheet" href="options.css"><script src="catalog.js" defer></script><script src="mcp-actions.js" defer></script><script src="mcp.js" defer></script></head>
+<body class="integration-page"><header><div class="brand"><img src="icons/budol-crest.svg" width="40" height="40" alt=""><h1>Budol</h1></div><a class="button-link" href="board.html">Back to deals</a></header><main>
+<section class="panel"><h2>Codex MCP</h2><p>Connect Codex to products and offers already loaded in Shopee, saved price observations, and alerts. Keep this tab open while using the tools.</p>
+<p id="mcp-status" role="status">Disconnected</p>
+<form id="mcp-connect"><label for="mcp-port">Local port<input id="mcp-port" type="number" min="1024" max="65535" value="38479" required></label><label for="mcp-token">Pairing key<input id="mcp-token" type="password" autocomplete="off" spellcheck="false" required pattern="[a-f0-9]{64}" aria-describedby="mcp-help"></label>
+<p id="mcp-help" class="hint">Run <code>npm run mcp:setup -- --register</code> in the Budol repository first. Setup creates a private pairing file for your unpacked extension. Public ZIP users can paste the extensionToken from their local configuration. Never share the key.</p>
+<label class="inline-check"><input id="mcp-writes" type="checkbox">Allow saving and removing products</label>
+<label class="inline-check"><input id="mcp-discord" type="checkbox">Also allow explicit Discord sends</label>
+<p class="hint">Read access excludes private notes, collections and webhook credentials. Changes and Discord access start disabled each time this page opens. Discord sends post immediately; an already dispatched action may finish after disconnecting.</p>
+<div class="actions"><button id="mcp-start" class="primary" type="submit">Connect</button><button id="mcp-stop" type="button" disabled>Disconnect</button></div></form><p id="mcp-error" role="alert" hidden></p>
+<h3>Recent requests</h3><ol id="mcp-log" aria-live="polite"></ol><p class="hint">Only tool names and outcomes are shown. Closing this page ends access; reconnect manually after restarting the browser.</p></section>
+</main></body></html>
