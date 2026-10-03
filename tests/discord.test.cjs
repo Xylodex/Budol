@@ -108,3 +108,12 @@ test('private local setup imports a webhook once without making a Discord reques
   w.install(); await wait(30);
   assert.equal(w.sent.length, 1);
 });
+
+test('disconnect during delayed local setup cannot reconnect the webhook', async () => {
+  let finish; const response = new Promise(resolve => { finish = resolve; });
+  const w = worker(async () => response); delete w.storage.budolDiscordWebhook;
+  w.install(); await wait(); assert.equal(w.sent.length, 1);
+  await w.settings('BUDOL_DISCORD_SETTINGS_CLEAR');
+  finish({ ok: true, json: async () => ({ webhook: endpoint }) }); await wait(20);
+  assert.equal(w.storage.budolDiscordWebhook, ''); assert.equal(w.storage.budolDiscordSeeded, true);
+});

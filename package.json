@@ -1,6 +1,6 @@
 {
   "name": "budol",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "private": true,
   "description": "Find Shopee Philippines discounts, sort loaded deals, save products, and estimate checkout costs.",
   "scripts": {

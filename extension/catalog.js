@@ -45,8 +45,9 @@
     const ratingValue = ratingMatch && Number(ratingMatch[1]) <= 5 ? Number(ratingMatch[1]) : null;
     const texts = [...card.querySelectorAll('span, div, small')].filter(n => !n.children.length && visible(n) && !n.closest('[data-sqe="name"], [class*="line-clamp-2"]')).map(n => clean(n.textContent, 160));
     const soldText = texts.find(s => /^\d[\d,.]*\s*[km]?\+?\s+sold$/i.test(s)) || '';
-    const soldMatch = soldText.match(/^([\d,]+(?:\.\d+)?)\s*([km])?(\+)?\s+sold$/i);
-    const soldValue = soldMatch ? Math.round(Number(soldMatch[1].replaceAll(',', '')) * ({ k: 1000, m: 1000000 }[soldMatch[2]?.toLowerCase()] || 1)) : null;
+    const soldMatch = soldText.match(/^((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*([km])?(\+)?\s+sold$/i);
+    const count = soldMatch && (!soldMatch[1].includes('.') || soldMatch[2]) ? Number(soldMatch[1].replaceAll(',', '')) * ({ k: 1000, m: 1000000 }[soldMatch[2]?.toLowerCase()] || 1) : null;
+    const soldValue = Number.isSafeInteger(count) && count >= 0 && count <= 1000000000 ? count : null;
     return { ratingValue, soldValue, soldText, seller: pick('[data-sqe="shop-name"], [data-testid="shop-name"]'), location: pick('[data-sqe="location"], [data-testid="location"]') };
   }
 
@@ -200,6 +201,17 @@
     if (!timestamp(raw.createdAt)) throw new Error('Invalid watch date.');
     return { mode: raw.mode, target: raw.mode === 'target' ? raw.target : null, paused: raw.paused !== false, discord: raw.discord === true, createdAt: timestamp(raw.createdAt), lastAlertAt: timestamp(raw.lastAlertAt), lastAlertPrice: Number.isSafeInteger(raw.lastAlertPrice) && raw.lastAlertPrice >= 0 ? raw.lastAlertPrice : null };
   }
+  function normalizeAlerts(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.slice(-100).flatMap(entry => {
+      try {
+        const product = normalizeProduct(entry?.product);
+        if (product.price === null || typeof entry.at !== 'string' || !Number.isFinite(Date.parse(entry.at))) return [];
+        const at = new Date(entry.at).toISOString();
+        return [{ id: `${product.id}:${at}`, product, at, reason: clean(entry.reason, 100) || 'Price watch matched', discord: clean(entry.discord, 500) || 'Delivery not confirmed', watch: entry.watch ? normalizeWatch(entry.watch) : null }];
+      } catch { return []; }
+    });
+  }
   function watchMatches(saved, product, now) {
     const watch = saved.watch;
     if (!watch || watch.paused || product.price == null || now <= watch.createdAt || (watch.lastAlertAt && Date.parse(now) - Date.parse(watch.lastAlertAt) < 86400000) || watch.lastAlertPrice === product.price) return false;
@@ -207,7 +219,11 @@
     return saved.history.length > 0 && product.price < Math.min(...saved.history.map(point => point.price));
   }
   function dealFilters(values = {}) {
-    const terms = value => String(value || '').toLocaleLowerCase().split(',').map(s => s.trim()).filter(Boolean).slice(0, 30);
+    const terms = value => {
+      const items = [...new Set(String(value || '').toLocaleLowerCase().split(',').map(s => s.trim()).filter(Boolean))];
+      if (items.length > 30) throw new Error('Use at most 30 keywords per field.');
+      return items;
+    };
     const numeric = (value, max, integer = false) => {
       if (value === '' || value == null) return null;
       const n = Number(value);
@@ -226,5 +242,5 @@
       (filters.rating === null || (product.ratingValue != null && product.ratingValue >= filters.rating)) &&
       (filters.sold === null || (product.soldValue != null && product.soldValue >= filters.sold));
   }
-  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, watchMatches, dealsCsv });
+  globalThis.BudolCatalog = Object.freeze({ MAX_PRODUCTS, MAX_HISTORY, productIdentity, money, parsePrice, parseRange, readProduct, visible, extractProducts, normalizeProduct, observe, validateBackup, calculate, format, priceLabel, dealFilters, matchesDeal, normalizeWatch, normalizeAlerts, watchMatches, dealsCsv });
 })();

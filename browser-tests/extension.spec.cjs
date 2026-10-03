@@ -183,6 +183,12 @@ test('installed extension highlights listings and saves popup controls', async (
 
     await board.getByText('Set a price watch', { exact: true }).click();
     await board.getByLabel('Target price (PHP)', { exact: true }).fill('250');
+    await board.getByRole('searchbox', { name: 'Search products' }).fill('no match');
+    await board.getByRole('button', { name: 'Clear filters', exact: true }).click();
+    await expect(board.getByLabel('Target price (PHP)', { exact: true })).toHaveValue('250');
+    board.once('dialog', dialog => dialog.accept());
+    await board.reload();
+    await expect(board.getByLabel('Target price (PHP)', { exact: true })).toHaveValue('250');
     await board.getByRole('button', { name: 'Save watch', exact: true }).click();
     await expect(board.locator('#saved')).toContainText('Price watch · active');
     await shop.locator('#card-80 .amount').evaluate(node => { node.textContent = '₱249'; });

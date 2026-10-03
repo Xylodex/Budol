@@ -4,6 +4,8 @@ Find discounted products on Shopee Philippines. Budol is a Chrome and Edge exten
 
 Version **1.9.0** adds listing ranges, keyword/budget/rating/sales filters, observed price watches, a four-product comparison, and CSV export. The Genshin-inspired menus and blue ₱1,000 palette remain, with original local artwork. The [implementation plan](docs/IMPLEMENTATION-PLAN-1.9.md) records scope; the [GitHub research](docs/GITHUB-FEATURE-RESEARCH.md) records the projects that informed it. No external repository code was copied.
 
+Version **1.9.1** fixes delivery and refresh races, preserves watch/variant drafts, validates ambiguous sales counts, and recovers from damaged alert entries. See the [edge-case audit](docs/EDGE-CASE-AUDIT.md) for coverage and limits.
+
 Version **1.7.1** fixes an uncaught error when Budol reloads while a Shopee tab remains open. The old product observer now stops cleanly; refresh Shopee to activate the updated scripts.
 
 ## Install or update
@@ -51,6 +53,7 @@ Repeated clicks are suppressed while sending and for ten seconds after a success
 - **Collection & notes:** edit details and select **Save details**. Unsaved drafts survive filtering, refreshes, and reloads in the same tab. Save before closing the tab; drafts are temporary and not included in backups.
 - **Price observations:** saved products update when their listing cards appear on pages you visit. One observation appears as a dated price; two or more show a chart and exact values. The card compares the current price with the first retained observation.
 - **Listing ranges:** explicit ranges retain both bounds in a separate dated history. They never enter single-price history. **Variant for estimates** stores a manually confirmed option name and price with its own date; recheck before buying. This is not automatic variant tracking.
+- **Watch and variant drafts:** unsaved input survives filters, refreshes and reloads in the same tab. Save or discard explicitly. Drafts are temporary and excluded from backups; automatic Discord posting still requires saving the watch.
 - **Compare:** add up to four products from Deals or Saved. The shortlist retains snapshots and input values while you filter or change sources, until you clear it or reload the board. Compare listing/variant prices, observed lows, available rating/sales/seller/origin and dates. Enter shipping and an eligible fixed voucher for each one-item estimate. Blank shipping stays unknown. Remove and re-add an item to refresh its snapshot.
 - **Cost calculator:** select **Use price**, confirm the variant price, enter quantity and shipping, and calculate. Enter 0 only when shipping is free. An optional fixed or percentage voucher supports minimum spend and a percentage cap. After the first estimate, valid edits update the total automatically. Selecting a different product resets quantity, shipping, and voucher values; **Clear calculator** resets everything.
 - **Remove / Undo removal:** undo restores the most recent removal, including any draft, until another removal or page reload.
@@ -64,7 +67,7 @@ On a saved product, open **Set a price watch**, choose a target PHP price or **N
 
 Matches appear in **Price alerts** (latest 100) and browser notifications if the operating system permits them. Clicking a notification opens the inbox. Each product has a 24-hour cooldown and cannot repeat its last alerted price. A new low is compared with retained single-price history.
 
-To send matches to Discord, configure a webhook in settings and explicitly enable **Also send matching prices to my Discord webhook** on that watch. Claims are saved before delivery; a failed or uncertain send is shown in the inbox and never retried automatically. Check Discord before manually resending. Backups retain watch settings, but importing always pauses new watches and disables their Discord delivery. Existing saved products remain unchanged.
+To send matches to Discord, configure a webhook in settings and explicitly enable **Also send matching prices to my Discord webhook** on that watch. Claims are saved before delivery; a failed or uncertain send is shown in the inbox and never retried automatically, including after extension restart. Slow sends do not block board editing. Pausing, removing or changing a watch stops its queued delivery; a request already dispatched to Discord cannot be recalled. Clearing alert history also cancels queued entries. Check Discord before manually resending. Backups retain watch settings, but importing always pauses new watches and disables their Discord delivery. Existing saved products remain unchanged.
 
 ## Storage and privacy
 

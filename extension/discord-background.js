@@ -3,7 +3,9 @@
   const menuId = 'budol-send-discord';
   const sending = new Set();
   const recentlySent = new Map();
+  let settingsRevision = 0;
   async function setup() {
+    const revision = settingsRevision;
     await chrome.contextMenus.removeAll();
     chrome.contextMenus.create({ id: menuId, title: 'Send item to Discord', contexts: ['page', 'link', 'image', 'selection'], documentUrlPatterns: ['https://*.shopee.ph/*'] });
     // Optional private setup file exists only in the owner's unpacked installation.
@@ -13,6 +15,8 @@
       const response = await fetch(chrome.runtime.getURL('discord-local.json'));
       if (!response.ok) return;
       const seed = await response.json();
+      const current = await chrome.storage.local.get(['budolDiscordWebhook', 'budolDiscordSeeded']);
+      if (revision !== settingsRevision || current.budolDiscordWebhook || current.budolDiscordSeeded) return;
       await chrome.storage.local.set({ budolDiscordWebhook: BudolDiscord.webhook(seed.webhook), budolDiscordSeeded: true });
     } catch { /* Public packages use the settings page instead. */ }
   }
@@ -24,8 +28,10 @@
     (async () => {
       if (!trusted(sender)) throw new Error('Open Budol settings to change Discord sharing.');
       if (message.type === 'BUDOL_DISCORD_SETTINGS_SAVE') {
+        settingsRevision++;
         await chrome.storage.local.set({ budolDiscordWebhook: BudolDiscord.webhook(message.webhook), budolDiscordSeeded: true });
       } else if (message.type === 'BUDOL_DISCORD_SETTINGS_CLEAR') {
+        settingsRevision++;
         await chrome.storage.local.set({ budolDiscordWebhook: '', budolDiscordSeeded: true });
       }
       const stored = await chrome.storage.local.get('budolDiscordWebhook');
