@@ -60,6 +60,7 @@ summary::marker { color: var(--green); }
 .candidate a { font-weight: 600; line-height: 1.5; }
 .candidate p { font-size: 15px; font-variant-numeric: tabular-nums; margin: 12px 0; }
 .candidate button { margin-top: auto; align-self: start; }
+.inline-check input[type="checkbox"] { flex-shrink: 0; }
 #more-candidates { margin-top: 16px; }
 .results-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
 #result-count { margin: 0; font-size: 13px; color: var(--muted); }

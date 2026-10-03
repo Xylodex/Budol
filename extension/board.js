@@ -65,8 +65,8 @@
   }
   function renderCandidates() {
     let shown = [];
-    try { shown = filteredCandidates(); $('deal-filter-error').textContent = ''; }
-    catch (error) { $('deal-filter-error').textContent = error.message; }
+    try { shown = filteredCandidates(); $('deal-filter-error').textContent = ''; $('deal-filter-error').hidden = true; }
+    catch (error) { $('deal-filter-error').textContent = error.message; $('deal-filter-error').hidden = false; }
     $('candidates').replaceChildren();
     $('deal-count').textContent = `${shown.length} ${$('matching-only').checked ? `matching ${discountThreshold}%+` : 'loaded'} products`;
     for (const product of shown.slice(0, candidateLimit)) {
@@ -124,6 +124,36 @@
     for (const point of [...points].reverse()) { const row = element('tr'); row.append(element('td', date(point.at)), element('td', format(point.price))); body.append(row); }
     table.append(body); const wrapper = element('div', undefined, 'history-table'); wrapper.append(table); details.append(wrapper); return details;
   }
+  async function renderAlerts() {
+    const alerts = (await chrome.storage.local.get('budolAlerts')).budolAlerts || [];
+    $('alerts-count').textContent = `(${alerts.length})`;
+    $('alerts').replaceChildren();
+    for (const alert of [...alerts].reverse()) {
+      const row = element('article', undefined, 'candidate');
+      row.append(link(alert.product), element('p', `${alert.reason} · ${format(alert.product.price)} · ${date(alert.at)}`), element('p', `Discord: ${alert.discord}`, 'hint'));
+      $('alerts').append(row);
+    }
+    if (!alerts.length) $('alerts').append(element('p', 'No price alerts yet. Set a watch on a saved product.'));
+    $('clear-alerts').disabled = alerts.length === 0;
+  }
+  $('clear-alerts').addEventListener('click', () => action($('clear-alerts'), async () => { await request('BUDOL_ALERTS_CLEAR'); await renderAlerts(); }));
+  chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.budolAlerts) renderAlerts().catch(error => notify(error.message, true)); });
+  function watchView(product) {
+    const details = element('details'); rememberDisclosure(details, `${product.id}:watch`);
+    const watch = product.watch;
+    details.append(element('summary', watch ? `Price watch · ${watch.paused ? 'paused' : 'active'}` : 'Set a price watch'));
+    const form = element('form', undefined, 'watch-form');
+    const modeLabel = element('label', 'Notify when'); const mode = element('select'); mode.name = 'mode'; mode.add(new Option('Target price reached', 'target')); mode.add(new Option('New observed low', 'low')); mode.value = watch?.mode || 'target'; modeLabel.append(mode);
+    const targetLabel = element('label', 'Target price (PHP)'); const target = element('input'); target.name = 'target'; target.type = 'number'; target.min = '0'; target.max = '1000000'; target.step = '0.01'; target.value = watch?.target == null ? '' : watch.target / 100; targetLabel.append(target);
+    const update = () => { targetLabel.hidden = mode.value !== 'target'; target.required = mode.value === 'target'; target.disabled = mode.value !== 'target'; }; mode.addEventListener('change', update); update();
+    const pausedLabel = element('label', 'Pause watch', 'inline-check'); const paused = element('input'); paused.type = 'checkbox'; paused.name = 'paused'; paused.checked = watch?.paused || false; pausedLabel.prepend(paused);
+    const discordLabel = element('label', 'Also send matching prices to my Discord webhook', 'inline-check'); const discord = element('input'); discord.type = 'checkbox'; discord.name = 'discord'; discord.checked = watch?.discord || false; discordLabel.prepend(discord);
+    const save = element('button', 'Save watch'); save.type = 'submit'; const remove = element('button', 'Remove watch', 'quiet'); remove.type = 'button'; remove.disabled = !watch;
+    form.append(modeLabel, targetLabel, pausedLabel, discordLabel, element('p', 'At most one alert per product per 24 hours. The same price is not sent again. Ranges and manual variant prices do not trigger watches.', 'hint'), save, remove);
+    form.addEventListener('submit', event => { event.preventDefault(); action(save, async () => { board = await request('BUDOL_WATCH', { id: product.id, watch: { mode: mode.value, target: target.value, paused: paused.checked, discord: discord.checked } }); render(); notify('Price watch saved.'); }); });
+    remove.addEventListener('click', () => action(remove, async () => { board = await request('BUDOL_WATCH', { id: product.id, watch: null }); render(); notify('Price watch removed.'); }));
+    details.append(form); return details;
+  }
   function productView(product) {
     const card = element('article', undefined, 'product');
     const title = element('h3'); title.append(link(product));
@@ -163,7 +193,7 @@
       $('undo-message').textContent = `Removed “${product.title}”.`;
       $('undo-notice').hidden = false; $('undo').focus(); notify('Product removed.');
     }));
-    actions.append(use, remove); card.append(actions, historyView(product));
+    actions.append(use, remove); card.append(actions, watchView(product), historyView(product));
     if (product.rangeHistory?.length) {
       const ranges = element('details'); rememberDisclosure(ranges, `${product.id}:ranges`);
       ranges.append(element('summary', `Listing ranges (${product.rangeHistory.length})`));
@@ -471,7 +501,8 @@
     } catch { notify('Could not read your discount setting. Showing 50% or more; try reloading.', true); }
     $('deal-threshold').value = discountThreshold;
     try {
-      board = await request('BUDOL_BOARD_GET'); render();
+      board = await request('BUDOL_BOARD_GET'); render(); await renderAlerts();
+      if (location.hash === '#alerts-panel') $('alerts-panel').open = true;
       $('source-panel').open = true;
       await readPage();
     } catch (error) { $('saved').setAttribute('aria-busy', 'false'); $('saved').textContent = 'Your board could not be loaded. Reload this page to try again.'; notify(error.message, true); }

@@ -111,7 +111,7 @@ test('a single price observation uses a readable entry rather than a one-point c
   const item = saved(1, 'First', 10000); item.history = [{ price: 10000, at: item.lastSeen }];
   const { document } = await setup(t, [item]);
   assert.equal(document.querySelector('#saved .chart'), null);
-  assert.match(document.querySelector('#saved details').textContent, /Visit a listing/);
+  assert.match([...document.querySelectorAll('#saved details')].find(node => node.querySelector('summary').textContent.startsWith('Price observations')).textContent, /Visit a listing/);
 });
 
 test('a listing range requires an explicit variant price for estimates', async t => {

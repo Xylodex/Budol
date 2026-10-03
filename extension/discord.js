@@ -26,7 +26,7 @@
     if (typeof raw.discount === 'number' && Number.isFinite(raw.discount) && raw.discount >= 0 && raw.discount <= 100) fields.push({ name: 'Advertised discount', value: `${raw.discount}% off`, inline: true });
     if (Number.isSafeInteger(raw.originalPrice) && raw.originalPrice > 0 && raw.originalPrice <= 100000000 && (product.price === null || raw.originalPrice > product.price)) fields.push({ name: 'Crossed-out listing price', value: php(raw.originalPrice), inline: true });
     for (const [key, name] of [['rating', 'Rating'], ['sold', 'Sold'], ['seller', 'Seller'], ['location', 'Ships from'], ['shipping', 'Shipping / offer shown']]) {
-      const value = clean(raw[key]);
+      const value = clean(raw[key] || (key === 'rating' && product.ratingValue != null ? `${product.ratingValue}/5` : key === 'sold' ? product.soldText : ''));
       if (value) fields.push({ name, value, inline: key !== 'shipping' });
     }
     const embed = {
