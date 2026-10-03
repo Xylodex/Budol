@@ -134,6 +134,7 @@
     try { shown = filteredCandidates(); $('deal-filter-error').textContent = ''; $('deal-filter-error').hidden = true; }
     catch (error) { $('deal-filter-error').textContent = error.message; $('deal-filter-error').hidden = false; }
     $('candidates').replaceChildren();
+    $('export-deals').disabled = shown.length === 0;
     $('deal-count').textContent = `${shown.length} ${$('matching-only').checked ? `matching ${discountThreshold}%+` : 'loaded'} products`;
     for (const product of shown.slice(0, candidateLimit)) {
       const card = element('article', undefined, 'candidate');
@@ -429,10 +430,19 @@
     }
   });
   $('search').addEventListener('input', render); $('collection').addEventListener('change', render); $('sort').addEventListener('change', render);
+  function downloadFile(text, type, name) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const anchor = element('a'); anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  $('export-deals').addEventListener('click', () => action($('export-deals'), async () => {
+    const products = filteredCandidates();
+    if (!products.length) throw new Error('No matching deals to export.');
+    downloadFile(BudolCatalog.dealsCsv(products), 'text/csv;charset=utf-8', `budol-deals-${new Date().toISOString().slice(0, 10)}.csv`);
+    notify(`CSV download started: ${products.length} filtered products, including matches beyond the visible cards.`);
+  }));
   $('export').addEventListener('click', () => action($('export'), async () => {
     const latest = await request('BUDOL_BOARD_GET');
-    const url = URL.createObjectURL(new Blob([JSON.stringify(latest, null, 2)], { type: 'application/json' }));
-    const anchor = element('a'); anchor.href = url; anchor.download = `budol-backup-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadFile(JSON.stringify(latest, null, 2), 'application/json', `budol-backup-${new Date().toISOString().slice(0, 10)}.json`);
     notify('Backup download started. Keep it to restore your local board.');
   }));
   $('import-file').addEventListener('change', async event => {
