@@ -222,7 +222,9 @@ test('invalid popup values are not saved and unsupported tabs show guidance', as
   assert.equal(browser.writes.length, 0);
   input.dispatchEvent(new Event('blur'));
   assert.equal(input.value, '50');
-  assert.equal(document.getElementById('status-title').textContent, 'Open a Shopee product listing');
+  assert.equal(document.getElementById('status-title').textContent, 'Page highlighting is unavailable here');
+  assert.match(document.getElementById('status-detail').textContent, /without Shopee open/);
+  assert.equal(document.querySelector('.external-history-link').getAttribute('href'), 'board.html#external-history-panel');
 });
 
 test('popup reports a failed save and can save again', async t => {

@@ -100,7 +100,7 @@
   document.addEventListener('keydown', event => { if (event.key === 'Escape') hidePreview(); });
   document.addEventListener('click', hidePreview);
   window.addEventListener('blur', hidePreview); window.addEventListener('resize', hidePreview);
-  document.addEventListener('scroll', hidePreview, true);
+  document.addEventListener('scroll', () => { if (!preview.hidden) hidePreview(); }, true);
   $('history-provider').addEventListener('change', hidePreview);
   function render(data, args) {
     output.replaceChildren();

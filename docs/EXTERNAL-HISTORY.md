@@ -4,7 +4,11 @@ Budol 1.13.0 calls PriceTrack PH and AiPrice directly from its service worker. T
 
 ## Use
 
-Open **External price history** on the board, choose a provider, paste a full product URL, and select **Look up history**. **Price history** on a saved or discovered item fills the form without sending a request. The first lookup requests optional browser access to that provider's API host. Denying access leaves the rest of Budol usable.
+Open **External prices** from the extension popup or board navigation. No Shopee or Lazada tab is required. The popup shortcut opens the history section directly without scanning shopping tabs. The latest locally saved provider response is restored automatically; **Saved lookups** lets you switch between retained responses without network access, including old responses labelled stale.
+
+Choose a provider, paste a full product URL, and select **Look up history** to query it. **Price history** on a saved or discovered item fills the form. The first lookup requests optional browser access to that provider's API host. Denying access leaves the rest of Budol usable.
+
+Hover over an item title or its **Price history** button inside Budol for **three seconds** to preview its last recorded external price. Keyboard focus uses the same delay; touch users can open the full view with the button. The preview stays available while hovered and closes on leaving, clicking, scrolling or Escape. Leaving before three seconds cancels the lookup. It uses the selected provider and saved records first, including clearly labelled stale records. With no matching cache, it queries the provider only if host access is already enabled; hovering never opens a permission prompt or shopping site. Refresh old records from the full history view. Variant names and observation dates remain visible: a recorded price is not a confirmed current checkout price.
 
 - **PriceTrack PH**: Shopee PH only. Returns recorded variants; select an exact variant and load its history. A single returned variant is selected automatically. Inactive variants remain labelled.
 - **AiPrice**: Shopee PH and Lazada PH. History is listing-level: the API response does not establish that it refers to the option you selected on the shopping site. A Lazada SKU in the pasted URL is deliberately not presented as a verified history match.
