@@ -57,6 +57,32 @@ test('installed extension highlights listings and saves popup controls', async (
     await popup.goto(`chrome-extension://${extensionId}/popup.html`);
     await expect(popup.locator('#threshold')).toBeEnabled();
     expect(await popup.locator('body').evaluate(body => body.scrollHeight)).toBeLessThanOrEqual(600);
+    await popup.setViewportSize({ width: 356, height: 600 });
+    await popup.locator('.hover-settings > summary').click();
+    for (const selector of ['.external-history-link', '#hover-provider', '#enable-hover']) {
+      expect(await popup.locator(selector).evaluate(node => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+    }
+    const contrast = await popup.evaluate(() => {
+      const luminance = color => {
+        const rgb = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => { value /= 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4; });
+        return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+      };
+      return ['.external-history-link', '.hover-settings summary', '.hover-settings label', '#hover-status', '#hover-provider', '#enable-hover', '#enabled-description', '#focus-description', '#threshold-help', '#save-status', 'footer a'].map(selector => {
+        const node = document.querySelector(selector), foreground = luminance(getComputedStyle(node).color);
+        let parent = node;
+        while (parent && /rgba\([^)]*, 0\)$/.test(getComputedStyle(parent).backgroundColor)) parent = parent.parentElement;
+        const background = luminance(getComputedStyle(parent).backgroundColor);
+        return { selector, ratio: (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05) };
+      });
+    });
+    for (const value of contrast) expect(value.ratio, value.selector).toBeGreaterThanOrEqual(4.5);
+    expect(await popup.evaluate(() => document.documentElement.scrollWidth)).toBe(356);
+    expect(await popup.locator('footer').evaluate(node => node.getBoundingClientRect().bottom)).toBeLessThanOrEqual(600);
+    await popup.screenshot({ path: testInfo.outputPath('popup-expanded-readable.png') });
+    await popup.locator('#status-detail').scrollIntoViewIfNeeded();
+    await expect(popup.locator('#status-detail')).toBeInViewport();
+    await popup.locator('.hover-settings > summary').click();
+    await popup.locator('.external-history-link').scrollIntoViewIfNeeded();
     // Keep the shop as the active tab, as it would be when using the toolbar popup.
     await shop.bringToFront();
     await expect(popup.locator('#status-title')).toHaveText('3 products highlighted');

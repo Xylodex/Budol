@@ -1,6 +1,19 @@
 :root { color-scheme: light; font: 13px/1.4 "Segoe UI", system-ui, sans-serif; color: #203b32; background: #f6f7f6; }
 * { box-sizing: border-box; }
 body { width: 356px; margin: 0; }
+.popup { height: 600px; min-height: 0; display: flex; flex-direction: column; }
+.popup header, .popup footer { flex-shrink: 0; }
+.popup main { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 12px 14px; }
+.popup .price-tools { padding: 12px; margin-bottom: 12px; border: 1px solid #a6cfe4; border-radius: 6px; background: #e8f4fb; color: #163c61; }
+.popup .external-history-link { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 12px; font-size: 14px; line-height: 1.4; text-decoration: none; }
+.popup .hover-settings { margin: 8px 0 0; color: #163c61; }
+.popup .hover-settings summary { min-height: 40px; padding: 10px 0; font-size: 14px; font-weight: 600; }
+.popup .hover-settings label { margin-top: 6px; font-size: 13px; }
+.popup .hover-settings select, .popup #enable-hover { display: block; width: 100%; min-height: 44px; margin: 8px 0; padding: 10px 12px; font: 600 14px/1.4 "Segoe UI", sans-serif; }
+.popup .hover-settings p { font-size: 12px; line-height: 1.5; color: #274c6c; }
+.popup .toggle-row label span, .popup .help, .popup .range-labels, .popup .page-status p, .popup header p { font-size: 12px; }
+.popup footer { font-size: 12px; background: #0b2d59; }
+.popup .error { color: #982c20; }
 header { display: flex; align-items: center; gap: 10px; padding: 16px 18px; background: white; border-bottom: 1px solid #d9e2d9; }
 h1 { font-size: 23px; margin: 0; letter-spacing: -.7px; line-height: 1.15; }
 header p { font-size: 11px; margin: 3px 0 0; color: #52665c; }

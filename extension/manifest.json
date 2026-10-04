@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Budol",
-  "version": "1.15.0",
+  "version": "1.15.1",
   "description": "Find Shopee Philippines discounts, sort loaded deals, save products, and estimate checkout costs.",
   "permissions": [
     "storage",
