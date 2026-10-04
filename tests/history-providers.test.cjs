@@ -12,10 +12,22 @@ function setup(fetcher, stored = {}, allowed = true) {
   const chrome = { permissions: { contains: async () => allowed }, storage: { local: { get: async () => structuredClone(stored), set: async values => Object.assign(stored, structuredClone(values)) } }, runtime: { getURL: path => `chrome-extension://budol/${path}`, onMessage: { addListener: fn => listeners.push(fn) } } };
   const context = vm.createContext({ chrome, URL, URLSearchParams, Blob, AbortController, AbortSignal, Date, Map, console, BudolHistoryPublicKey: 'public-test-key', fetch: async (url, options) => { calls.push({ url: String(url), options }); return fetcher(new URL(url), options); } });
   vm.runInContext(source('history-providers.js'), context); vm.runInContext(source('history-background.js'), context);
-  const message = (data, sender = chrome.runtime.getURL('board.html')) => new Promise(resolve => listeners[0](data, { url: sender }, resolve));
+  const message = (data, sender = chrome.runtime.getURL('board.html')) => new Promise(resolve => listeners[0](data, typeof sender === 'string' ? { url: sender } : sender, resolve));
   return { api: context.BudolHistory, calls, message, stored };
 }
 const reply = data => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+test('Shopee preview accepts only a Shopee tab, ignores caller provider choices and cannot clear cache', async () => {
+  const sender = { url: 'https://shopee.ph/search', tab: { id: 3 } };
+  const state = setup(() => reply({ code: 200, success: 1, currency: 'PHP', adid: '72', price_tracking: [{ price: '69.58', time_update: Date.now() / 1000 }] }), { budolHistoryProvider: 'aiprice' });
+  const args = { type: 'BUDOL_HISTORY_PREVIEW', url: shop, provider: 'pricetrack', variantId: '999' };
+  for (const bad of ['https://shopee.ph/search', { url: 'https://shopee.ph.evil.test/', tab: { id: 3 } }, { url: 'https://example.com/', tab: { id: 3 } }]) assert.equal((await state.message(args, bad)).ok, false);
+  assert.equal((await state.message({ ...args, url: lazada }, sender)).ok, false);
+  const response = await state.message(args, sender); assert.equal(response.history.provider, 'aiprice'); assert.equal(response.history.points[0].price, 6958);
+  state.stored.budolExternalHistory[0].at = 1;
+  const cached = await state.message(args, sender); assert.equal(cached.history.stale, true); assert.equal(state.calls.length, 1);
+  assert.equal((await state.message({ type: 'BUDOL_HISTORY_CLEAR' }, sender)).ok, false);
+  assert.equal(state.stored.budolExternalHistory.length, 1);
+});
 function pt(url) {
   if (url.pathname.endsWith('/products')) return reply([product]);
   if (url.pathname.endsWith('/product_variations')) return reply(variants);

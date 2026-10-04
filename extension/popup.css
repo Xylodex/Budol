@@ -7,8 +7,8 @@ header p { font-size: 11px; margin: 3px 0 0; color: #52665c; }
 #open-board { margin-left: auto; flex-shrink: 0; min-height: 40px; padding: 8px; border: 1px solid #7b9184; border-radius: 8px; background: white; color: #076b56; font: 600 12px "Segoe UI", sans-serif; cursor: pointer; }
 main { padding: 16px 18px 0; }
 .external-history-link { display: block; text-align: center; }
-.external-history-help { margin: 8px 0 14px; }
-.hover-settings { margin-bottom: 14px; }
+.hover-settings { margin: 8px 0; }
+.hover-settings summary { cursor: pointer; padding: 4px 0; }
 .hover-settings label { display: block; margin-bottom: 6px; }
 .hover-settings select { max-width: 100%; padding: 8px; }
 .hover-settings p { font-size: 11px; margin: 6px 0; }
