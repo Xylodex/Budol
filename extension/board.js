@@ -104,6 +104,7 @@
   }
   function link(product) {
     const anchor = element('a', product.title);
+    anchor.dataset.historyUrl = product.url;
     anchor.href = product.url; anchor.target = '_blank'; anchor.rel = 'noreferrer';
     return anchor;
   }
@@ -118,6 +119,7 @@
   }
   function externalHistoryButton(product) {
     const button = element('button', 'Price history'); button.type = 'button';
+    button.dataset.historyUrl = product.url;
     button.addEventListener('click', () => {
       $('history-url').value = product.url; $('history-url').dispatchEvent(new Event('input'));
       $('external-history-panel').open = true; $('external-history-panel').scrollIntoView({ block: 'start' }); $('history-lookup').focus();
@@ -476,13 +478,18 @@
     }
   }
   for (const link of document.querySelectorAll('.section-nav a')) link.addEventListener('click', () => markSection(link.hash.slice(1)));
-  for (const id of ['source-panel', 'saved-panel', 'calculator-panel', 'backup-panel']) {
+  for (const id of ['source-panel', 'saved-panel', 'calculator-panel', 'backup-panel', 'external-history-panel']) {
     $(id).addEventListener('focusin', event => { event.stopPropagation(); markSection(id); });
   }
   function openSource() { $('source-panel').open = true; $('source-panel').scrollIntoView({ block: 'start' }); $('source-panel').querySelector('summary').focus(); markSection('source-panel'); }
   function clearFilters() { $('search').value = ''; $('collection').value = ''; render(); $('search').focus(); }
   $('find-products').addEventListener('click', event => { event.preventDefault(); openSource(); });
   document.querySelector('a[href="#backup-panel"]').addEventListener('click', () => { $('backup-panel').open = true; });
+  function openHistorySection() {
+    $('external-history-panel').open = true; markSection('external-history-panel');
+  }
+  document.querySelector('a[href="#external-history-panel"]').addEventListener('click', openHistorySection);
+  if (location.hash === '#external-history-panel') { openHistorySection(); $('source-panel').open = false; }
   $('clear-filters').addEventListener('click', clearFilters);
   $('more-candidates').addEventListener('click', () => {
     const previous = candidateLimit; candidateLimit += 6; renderCandidates();
@@ -713,8 +720,8 @@
       board = await request('BUDOL_BOARD_GET'); render();
       try { await renderAlerts(); } catch { $('alerts').textContent = 'Alert history could not be loaded. Reload Budol to try again.'; }
       if (location.hash === '#alerts-panel') $('alerts-panel').open = true;
-      $('source-panel').open = true;
-      await readPage();
+      if (location.hash !== '#external-history-panel') { $('source-panel').open = true; await readPage(); }
+      else { $('page-state').textContent = 'Refresh products to read an open Shopee listing. External prices work independently.'; $('source-tab').replaceChildren(new Option('Refresh to find Shopee tabs', '')); $('candidates').setAttribute('aria-busy', 'false'); }
     } catch (error) { $('saved').setAttribute('aria-busy', 'false'); $('saved').textContent = 'Your board could not be loaded. Reload this page to try again.'; notify(error.message, true); }
   })();
 })();

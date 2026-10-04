@@ -2,10 +2,106 @@
   'use strict';
   const $ = id => document.getElementById(id), output = $('history-result'), status = $('history-status');
   let revision = 0;
+  let cachedRows = [];
   const node = (tag, text) => { const el = document.createElement(tag); if (text != null) el.textContent = text; return el; };
   const money = cents => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(cents / 100);
   function reset() { revision++; output.replaceChildren(); status.textContent = ''; }
   $('history-url').addEventListener('input', reset); $('history-provider').addEventListener('change', reset);
+  function showCached(row) {
+    reset();
+    const data = row.data;
+    $('history-provider').value = data.provider; $('history-url').value = data.url;
+    const stale = Date.now() - row.at >= 30 * 60000;
+    render({ ...data, cached: true, stale, warning: stale ? 'Saved provider response. Look up history to check for newer records.' : '' }, { provider: data.provider, url: data.url, variantId: data.variantId });
+    status.textContent = 'Showing saved provider history. No website or network request needed.';
+  }
+  function updateRecent(rows) {
+    cachedRows = (Array.isArray(rows) ? rows : []).filter(row => row?.data && Object.hasOwn(BudolHistory.PROVIDERS, row.data.provider)).slice(-20).reverse();
+    const select = $('history-recent'), selected = select.value;
+    select.replaceChildren();
+    const placeholder = node('option', cachedRows.length ? 'Choose a saved lookup' : 'No saved lookups yet'); placeholder.value = ''; select.append(placeholder);
+    for (const row of cachedRows) {
+      const data = row.data, variant = data.variants.find(v => v.id === data.variantId);
+      const option = node('option', `${data.title || data.url} · ${data.providerName}${variant ? ` · ${variant.name}` : ''}`); option.value = row.key; select.append(option);
+    }
+    select.value = cachedRows.some(row => row.key === selected) ? selected : ''; select.disabled = !cachedRows.length;
+  }
+  $('history-recent').addEventListener('change', event => {
+    const row = cachedRows.find(row => row.key === event.target.value); if (row) showCached(row);
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.budolExternalHistory) return;
+    updateRecent(changes.budolExternalHistory.newValue);
+    if (!cachedRows.length) { reset(); hidePreview(); }
+  });
+  const initialRevision = revision;
+  chrome.storage.local.get('budolExternalHistory').then(values => {
+    updateRecent(values.budolExternalHistory);
+    if (revision === initialRevision && cachedRows.length) { showCached(cachedRows[0]); $('history-recent').value = cachedRows[0].key; }
+  }).catch(() => { status.textContent = 'Could not read saved history. You can still look up a product.'; });
+  // A dwell avoids provider requests when the pointer merely crosses an item.
+  const preview = node('div'); preview.id = 'history-preview'; preview.className = 'history-preview'; preview.setAttribute('role', 'tooltip'); preview.hidden = true; document.body.append(preview);
+  let hoverTimer, leaveTimer, hoverTarget, hoverRevision = 0, oldDescription = null;
+  function hidePreview() {
+    clearTimeout(hoverTimer); clearTimeout(leaveTimer); hoverRevision++;
+    if (hoverTarget && oldDescription !== null) hoverTarget.setAttribute('aria-describedby', oldDescription);
+    else hoverTarget?.removeAttribute('aria-describedby');
+    hoverTarget = null; oldDescription = null; preview.hidden = true;
+  }
+  function positionPreview(target) {
+    const rect = target.getBoundingClientRect();
+    preview.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - preview.offsetWidth - 8))}px`;
+    preview.style.top = `${Math.max(8, Math.min(rect.bottom + 8, innerHeight - preview.offsetHeight - 8))}px`;
+  }
+  async function showPreview(target, epoch) {
+    if (epoch !== hoverRevision || !target.isConnected) return;
+    preview.replaceChildren(node('strong', 'External price'), node('p', 'Loading provider history…')); preview.hidden = false;
+    target.setAttribute('aria-describedby', [oldDescription, preview.id].filter(Boolean).join(' ')); positionPreview(target);
+    try {
+      const url = BudolHistory.identity(target.dataset.historyUrl).url, provider = $('history-provider').value;
+      const matches = cachedRows.filter(row => row.data.url === url && row.data.provider === provider);
+      const cached = matches.find(row => row.data.points.length) || matches[0];
+      let data;
+      if (cached) data = { ...cached.data, cached: true, stale: Date.now() - cached.at >= 30 * 60000 };
+      else {
+        if (!await chrome.permissions.contains({ origins: [BudolHistory.PROVIDERS[provider].origin] })) throw new Error('Enable this provider with Look up history in External prices first.');
+        if (epoch !== hoverRevision || !target.isConnected) return;
+        const response = await chrome.runtime.sendMessage({ type: 'BUDOL_HISTORY_LOOKUP', provider, url });
+        if (!response?.ok) throw new Error(response?.error || 'Provider lookup unavailable.');
+        data = response.history;
+      }
+      if (epoch !== hoverRevision || !target.isConnected) return;
+      const point = data.points.at(-1), variant = data.variants.find(v => v.id === data.variantId);
+      preview.replaceChildren(node('strong', point ? money(point.price) : 'No recorded price'));
+      preview.append(node('p', `${data.providerName} · ${data.scope === 'listing' ? 'listing-level; variant unknown' : variant ? `recorded variant: ${variant.name}` : 'select a variant in Price history'}`));
+      if (point) preview.append(node('p', `Last observed ${new Date(point.at).toLocaleString()}. Not a current checkout price.`));
+      preview.append(node('p', `${data.cached ? 'Saved response' : 'Provider response'}${data.stale ? ' · stale' : ''} · fetched ${new Date(data.fetchedAt).toLocaleString()}`));
+      if (!point && !data.variants.length) preview.append(node('p', 'The provider returned no usable history.'));
+    } catch (error) {
+      if (epoch !== hoverRevision || !target.isConnected) return;
+      preview.replaceChildren(node('strong', 'External price unavailable'), node('p', error.message));
+    }
+    positionPreview(target);
+  }
+  function schedulePreview(target) {
+    if (hoverTarget === target) { clearTimeout(leaveTimer); return; }
+    hidePreview(); hoverTarget = target; oldDescription = target.getAttribute('aria-describedby');
+    const epoch = hoverRevision; hoverTimer = setTimeout(() => showPreview(target, epoch), 3000);
+  }
+  document.addEventListener('pointerover', event => { const target = event.target.closest('[data-history-url]'); if (target && event.pointerType !== 'touch') schedulePreview(target); });
+  document.addEventListener('pointerout', event => {
+    if (!hoverTarget || !hoverTarget.contains(event.target) || hoverTarget.contains(event.relatedTarget)) return;
+    if (preview.hidden) { hidePreview(); return; }
+    clearTimeout(hoverTimer); leaveTimer = setTimeout(hidePreview, 180);
+  });
+  preview.addEventListener('pointerenter', () => clearTimeout(leaveTimer));
+  preview.addEventListener('pointerleave', () => { leaveTimer = setTimeout(hidePreview, 180); });
+  document.addEventListener('focusin', event => { const target = event.target.closest('[data-history-url]'); if (target) schedulePreview(target); else hidePreview(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') hidePreview(); });
+  document.addEventListener('click', hidePreview);
+  window.addEventListener('blur', hidePreview); window.addEventListener('resize', hidePreview);
+  document.addEventListener('scroll', () => { if (!preview.hidden) hidePreview(); }, true);
+  $('history-provider').addEventListener('change', hidePreview);
   function render(data, args) {
     output.replaceChildren();
     const title = node('h3', data.title || (data.platform === 'shopee' ? 'Shopee item' : 'Lazada item')); output.append(title);

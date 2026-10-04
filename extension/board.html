@@ -9,7 +9,7 @@
   <a class="skip-link" href="#main">Skip to your board</a>
   <header><div class="brand"><img src="icons/budol-crest.svg" width="40" height="40" alt=""><h1>Budol</h1></div><div class="header-actions"><a class="button-link" href="https://shopee.ph" target="_blank" rel="noreferrer">Open Shopee ↗</a></div></header>
   <main id="main" tabindex="-1">
-    <nav class="section-nav" aria-label="Budol sections"><a href="#source-panel" id="find-products" aria-current="location"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#discount"></use></svg>Deals</a><a href="#saved-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#bag"></use></svg>Saved products <span id="nav-count">0</span></a><a href="#calculator-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#calculator"></use></svg>Calculator</a><a href="#backup-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#archive"></use></svg>Backups</a></nav>
+    <nav class="section-nav" aria-label="Budol sections"><a href="#source-panel" id="find-products" aria-current="location"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#discount"></use></svg>Deals</a><a href="#saved-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#bag"></use></svg>Saved products <span id="nav-count">0</span></a><a href="#external-history-panel">External prices</a><a href="#calculator-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#calculator"></use></svg>Calculator</a><a href="#backup-panel"><svg class="menu-icon" aria-hidden="true"><use href="icons/menu-symbols.svg#archive"></use></svg>Backups</a></nav>
     <p id="notice" role="status" aria-live="polite"></p>
     <p id="failure" role="alert" hidden></p>
     <div id="undo-notice" class="undo-notice" hidden><span id="undo-message"></span><button id="undo" type="button">Undo removal</button></div>
@@ -35,8 +35,8 @@
     <details class="panel" id="alerts-panel"><summary>Price alerts <span id="alerts-count"></span></summary><p class="hint">Watches update when you browse Shopee. No background price checks. Alerts use single listing prices; confirm the variant before buying. Latest 100 alerts retained.</p><div id="alerts"></div><button id="clear-alerts" type="button">Clear alert history</button><a class="button-link" href="options.html">Discord settings</a></details>
     <details class="panel" id="compare-panel"><summary>Compare products <span id="compare-count">(0/4)</span></summary><p class="hint">Choose 2–4 products from Deals or Saved. Prices below are snapshots from when you add each item; remove and add it again to refresh. Estimates are for one item each.</p><div id="comparison" class="comparison-grid"></div><button id="clear-comparison" type="button" disabled>Clear comparison</button></details>
     <details class="panel" id="external-history-panel"><summary>External price history</summary>
-      <p class="hint">Look up the last 90 days directly from a tracker. The selected provider receives the product ID and your network address. No other extension is needed. These records are separate from your local history and watches.</p>
-      <form id="external-history-form"><div class="filters"><label>Provider<select id="history-provider"><option value="pricetrack">PriceTrack PH · Shopee</option><option value="aiprice">AiPrice · Shopee & Lazada</option></select></label><label>Product link<input id="history-url" type="url" required maxlength="2000" placeholder="Full Shopee PH or Lazada PH item link"></label></div><button id="history-lookup" type="submit">Look up history</button></form>
+      <p class="hint">Look up the last 90 days directly from a tracker. The selected provider receives the product ID and your network address. Shopee and Lazada do not need to be open. These records are separate from your local history and watches.</p>
+      <label>Saved lookups<select id="history-recent" disabled><option value="">No saved lookups yet</option></select></label><form id="external-history-form"><div class="filters"><label>Provider<select id="history-provider"><option value="pricetrack">PriceTrack PH · Shopee</option><option value="aiprice">AiPrice · Shopee & Lazada</option></select></label><label>Product link<input id="history-url" type="url" required maxlength="2000" placeholder="Full Shopee PH or Lazada PH item link"></label></div><button id="history-lookup" type="submit">Look up history</button></form>
       <p id="history-status" role="status" aria-live="polite"></p><div id="history-result"></div>
     </details>
     <div class="workspace">
@@ -72,6 +72,6 @@
       </aside>
     </div>
   </main>
-  <footer>Data is stored in this browser.<span>Budol 1.13.0</span></footer>
+  <footer>Data is stored in this browser.<span>Budol 1.14.0</span></footer>
 </body>
 </html>

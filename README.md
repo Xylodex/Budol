@@ -1,5 +1,7 @@
 # Budol
 
+Version 1.14 adds **External prices** directly to the popup, restores saved provider lookups without opening Shopee, and previews an item's last recorded external price after hovering over its title or **Price history** button for three seconds. Preview requests use the selected provider and require its access to be enabled first.
+
 Find discounted products on Shopee Philippines. Budol is a Chrome and Edge extension that highlights matching listings and puts the highest advertised discounts first in a local Deals page.
 
 Version **1.13.0** adds direct price-history lookups from PriceTrack PH and AiPrice, including Lazada PH listing history. No tracker extension is required. [Provider access, cache controls and limits](docs/EXTERNAL-HISTORY.md).
