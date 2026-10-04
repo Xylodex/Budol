@@ -40,8 +40,8 @@
     const panel = document.querySelector('.page-status');
     panel.dataset.state = result?.ready && settings.enabled ? 'active' : 'idle';
     if (!result?.ready) {
-      title.textContent = 'Open a Shopee product listing';
-      detail.textContent = 'Already on shopee.ph? Refresh the page after installing.';
+      title.textContent = 'Page highlighting is unavailable here';
+      detail.textContent = 'External prices and saved products work without Shopee open.';
     } else if (!settings.enabled) {
       title.textContent = 'Filter is paused';
       detail.textContent = 'Turn it on to mark matching products again.';

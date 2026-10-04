@@ -110,4 +110,8 @@ footer { border-top: 1px solid var(--line); font-size: 13px; color: var(--muted)
 .external-history-table { width: 100%; border-collapse: collapse; text-align: left; }
 .external-history-table td, .external-history-table th { padding: .55rem; border-bottom: 1px solid var(--line); }
 #history-url { min-width: 0; width: 100%; }
+#history-recent { min-width: 0; width: 100%; max-width: 100%; }
 #external-history-panel p { overflow-wrap: anywhere; }
+.history-preview { position: fixed; z-index: 1000; width: min(340px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; padding: 16px; border: 1px solid var(--control); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 28px #061e4166; overflow-wrap: anywhere; }
+.history-preview strong { font-size: 22px; }
+.history-preview p { margin: 8px 0 0; font-size: 13px; }
