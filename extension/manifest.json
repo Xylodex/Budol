@@ -9,7 +9,7 @@
     "notifications"
   ],
   "host_permissions": ["https://discord.com/api/webhooks/*", "https://discord.com/api/v10/webhooks/*", "https://*.susercontent.com/*"],
-  "optional_host_permissions": ["http://127.0.0.1/*", "https://*.shopee.ph/*"],
+  "optional_host_permissions": ["http://127.0.0.1/*", "https://*.shopee.ph/*", "https://sgitojuhoaxxnujdikbd.supabase.co/*", "https://api.aiprice.com/*"],
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": {
     "service_worker": "background.js"

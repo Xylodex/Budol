@@ -116,6 +116,14 @@
     }));
     return button;
   }
+  function externalHistoryButton(product) {
+    const button = element('button', 'Price history'); button.type = 'button';
+    button.addEventListener('click', () => {
+      $('history-url').value = product.url; $('history-url').dispatchEvent(new Event('input'));
+      $('external-history-panel').open = true; $('external-history-panel').scrollIntoView({ block: 'start' }); $('history-lookup').focus();
+    });
+    return button;
+  }
   async function refreshCache() {
     const result = await chrome.runtime.sendMessage({ type: 'BUDOL_CACHE_LIST' });
     if (!result?.ok || !result.cache) throw new Error(result?.error || 'Share cache unavailable. Reload Budol and try again.');
@@ -250,7 +258,7 @@
         [...$('candidates').children].find(node => node.dataset.productId === product.id)?.focus();
         notify(`Saved “${product.title}”.`);
       }));
-      card.append(button, compareButton(product)); $('candidates').append(card);
+      card.append(button, compareButton(product), externalHistoryButton(product)); $('candidates').append(card);
     }
     if (candidates.length && !shown.length) {
       const empty = element('p', 'No loaded products match. Adjust the product filters or discount threshold, or scroll on Shopee and refresh.', 'hint');
@@ -367,7 +375,7 @@
       $('undo-message').textContent = `Removed “${product.title}”.`;
       $('undo-notice').hidden = false; $('undo').focus(); notify('Product removed.');
     }));
-    actions.append(use, compareButton(product), sendSavedButton(product), remove); card.append(actions, watchView(product), historyView(product));
+    actions.append(use, compareButton(product), externalHistoryButton(product), sendSavedButton(product), remove); card.append(actions, watchView(product), historyView(product));
     if (product.rangeHistory?.length) {
       const ranges = element('details'); rememberDisclosure(ranges, `${product.id}:ranges`);
       ranges.append(element('summary', `Listing ranges (${product.rangeHistory.length})`));

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Budol — Deals</title><link rel="stylesheet" href="board.css"><link rel="stylesheet" href="game-ui.css">
-  <script src="catalog.js" defer></script><script src="board.js" defer></script>
+  <script src="catalog.js" defer></script><script src="board.js" defer></script><script src="history-providers.js" defer></script><script src="history-view.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to your board</a>
@@ -34,6 +34,11 @@
     </details>
     <details class="panel" id="alerts-panel"><summary>Price alerts <span id="alerts-count"></span></summary><p class="hint">Watches update when you browse Shopee. No background price checks. Alerts use single listing prices; confirm the variant before buying. Latest 100 alerts retained.</p><div id="alerts"></div><button id="clear-alerts" type="button">Clear alert history</button><a class="button-link" href="options.html">Discord settings</a></details>
     <details class="panel" id="compare-panel"><summary>Compare products <span id="compare-count">(0/4)</span></summary><p class="hint">Choose 2–4 products from Deals or Saved. Prices below are snapshots from when you add each item; remove and add it again to refresh. Estimates are for one item each.</p><div id="comparison" class="comparison-grid"></div><button id="clear-comparison" type="button" disabled>Clear comparison</button></details>
+    <details class="panel" id="external-history-panel"><summary>External price history</summary>
+      <p class="hint">Look up the last 90 days directly from a tracker. The selected provider receives the product ID and your network address. No other extension is needed. These records are separate from your local history and watches.</p>
+      <form id="external-history-form"><div class="filters"><label>Provider<select id="history-provider"><option value="pricetrack">PriceTrack PH · Shopee</option><option value="aiprice">AiPrice · Shopee & Lazada</option></select></label><label>Product link<input id="history-url" type="url" required maxlength="2000" placeholder="Full Shopee PH or Lazada PH item link"></label></div><button id="history-lookup" type="submit">Look up history</button></form>
+      <p id="history-status" role="status" aria-live="polite"></p><div id="history-result"></div>
+    </details>
     <div class="workspace">
       <section class="panel saved-panel" id="saved-panel" aria-labelledby="saved-heading">
         <div class="section-heading"><h2 id="saved-heading" tabindex="-1">Saved products <span id="count">0</span></h2></div>
@@ -42,6 +47,7 @@
         <p class="hint price-note">Listing prices can vary by variant. History updates when you visit Shopee.</p><datalist id="collection-names"></datalist>
         <div id="saved" aria-busy="true"><p class="empty-state">Loading saved products…</p></div>
         <details class="backup" id="backup-panel"><summary>Backups & storage</summary><p>Keep a copy before uninstalling. Up to 200 products and 90 observations per product stay on this browser. JSON backups include product details and image URLs, not downloaded images.</p><button id="export" type="button">Export backup</button><div class="restore-backup"><h3>Restore a backup</h3><p>Preview new products before importing. Existing products keep their notes and history.</p><label>Budol JSON backup<input id="import-file" type="file" accept="application/json,.json"></label><p id="import-preview" role="status"></p><button id="import" type="button" disabled>Import new products</button></div>
+        <h3>External history cache</h3><p class="hint">Up to 20 provider responses are retained and reused for 30 minutes. Clearing them preserves local price history, products and watches.</p><button id="clear-external-history" type="button">Clear external history cache</button><p id="history-clear-status" role="status"></p>
         <h3>Saved images & share cache</h3><p id="cache-usage" role="status">Open this section to check storage.</p><p class="hint">Saving or sharing an item keeps its public details and a local image when available. Up to 200 snapshots and 32 MiB of images; older entries may be evicted. Sending a saved item needs Discord access, but no Shopee tab.</p>
         <div class="actions"><button id="refresh-cache" type="button">Refresh cache status</button><button id="clear-images" type="button">Clear saved images</button><button id="clear-cache" type="button">Clear share cache</button></div><p class="hint">Clear saved images removes downloaded image files. Clear share cache removes those files and cached sharing snapshots. Saved products, notes, price history, watches and settings remain; saved products can still be shared as text. New saves or changed observations may cache images again.</p><div id="cache-items"></div></details>
       </section>
