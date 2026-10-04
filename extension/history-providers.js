@@ -64,7 +64,7 @@
   }
   async function lookup(provider, rawUrl, variantId = '', signal = AbortSignal.timeout(12000)) {
     const item = identity(rawUrl), now = Date.now();
-    if (!PROVIDERS[provider]) throw new Error('Choose a supported history provider.');
+    if (!Object.hasOwn(PROVIDERS, provider)) throw new Error('Choose a supported history provider.');
     if (typeof variantId !== 'string' || variantId && !id(variantId)) throw new Error('Invalid provider variant ID.');
     if (provider === 'pricetrack' && item.platform !== 'shopee') throw new Error('PriceTrack PH supports Shopee only. Choose AiPrice for Lazada.');
     if (provider === 'aiprice' && variantId) throw new Error('AiPrice history does not identify the selected variant.');

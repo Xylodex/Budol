@@ -41,7 +41,13 @@
       if (epoch !== revision) return;
       if (!response?.ok) throw new Error(response?.error || 'Provider lookup failed.');
       render(response.history, args); status.textContent = response.history.stale ? 'Showing cached history; refresh failed.' : 'History lookup complete.';
-    } catch (error) { if (epoch === revision) status.textContent = error.message; }
+    } catch (error) {
+      if (epoch === revision) {
+        status.textContent = error.message;
+        const retry = node('button', 'Try this lookup again'); retry.type = 'button';
+        retry.addEventListener('click', () => lookup(args, retry)); output.append(retry);
+      }
+    }
     finally { button.disabled = false; button.removeAttribute('aria-busy'); }
   }
   $('external-history-form').addEventListener('submit', async event => {

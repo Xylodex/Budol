@@ -7,7 +7,7 @@
   async function lookup(message) {
     const { provider, variantId = '' } = message;
     const item = BudolHistory.identity(message.url), config = BudolHistory.PROVIDERS[provider];
-    if (!config || typeof variantId !== 'string' || !/^\d{0,20}$/.test(variantId)) throw new Error('Invalid history request.');
+    if (!Object.hasOwn(BudolHistory.PROVIDERS, provider) || typeof variantId !== 'string' || !/^\d{0,20}$/.test(variantId)) throw new Error('Invalid history request.');
     if (provider === 'pricetrack' && item.platform !== 'shopee') throw new Error('Choose AiPrice for Lazada history.');
     const key = `${provider}:${item.url}:${variantId}`, epoch = revision;
     const { [STORE]: rows = [] } = await chrome.storage.local.get(STORE);
