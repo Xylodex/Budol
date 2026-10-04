@@ -3,7 +3,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { loadConfig } from './config.mjs';
 
-const commands = new Set(['list_tabs', 'get_products', 'list_saved', 'list_cached', 'get_alerts', 'save_product', 'remove_saved', 'send_discord']);
+const commands = new Set(['list_tabs', 'get_products', 'list_saved', 'list_cached', 'get_alerts', 'save_product', 'remove_saved', 'send_discord', 'get_external_history']);
 const writes = new Set(['save_product', 'remove_saved', 'send_discord']);
 const equal = (a, b) => typeof a === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export async function startBroker(config, { timeout = 25000, lease = 35000, idle = 90000 } = {}) {

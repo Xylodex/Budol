@@ -106,3 +106,8 @@ footer { border-top: 1px solid var(--line); font-size: 13px; color: var(--muted)
 .offer { padding: 12px 0; border-bottom: 1px solid #83aecb55; }
 .offer p { margin: 6px 0; }
 .cached-share { padding: 14px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.history-table-scroll { max-height: 28rem; overflow: auto; margin-block: 1rem; }
+.external-history-table { width: 100%; border-collapse: collapse; text-align: left; }
+.external-history-table td, .external-history-table th { padding: .55rem; border-bottom: 1px solid var(--line); }
+#history-url { min-width: 0; width: 100%; }
+#external-history-panel p { overflow-wrap: anywhere; }

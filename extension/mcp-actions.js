@@ -86,6 +86,11 @@
         const cache = (await request('BUDOL_CACHE_LIST')).cache;
         return { items: cache.items.slice(offset, offset + limit), total: cache.items.length, imageBytes: cache.imageBytes, next_offset: offset + limit < cache.items.length ? offset + limit : null };
       }
+      case 'get_external_history': {
+        check(false);
+        const result = await request('BUDOL_HISTORY_LOOKUP', { provider: args.provider, url: args.url, variantId: args.variant_id || '' });
+        check(false); return result.history;
+      }
       default: throw new Error('Unknown Budol tool.');
     }
   }

@@ -1,6 +1,6 @@
 # Codex MCP integration
 
-Budol 1.12.0 exposes ten tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
+Budol 1.13.0 exposes eleven tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
 
 ## Setup
 
@@ -43,6 +43,7 @@ For a separately extracted public ZIP, copy the private pairing file from your o
 | `budol_get_products` | Loaded listing cards, prices, discount claims and offer evidence; keyword, discount and price filters; pagination |
 | `budol_list_saved` | Saved public evidence, optionally retained single-price/range histories; title search and pagination |
 | `budol_list_cached` | Retained public sharing snapshots, capture dates and image availability; no Shopee tab needed |
+| `budol_get_external_history` | Direct PriceTrack PH variant history or AiPrice Shopee/Lazada listing history; requires the provider's optional host permission |
 | `budol_get_alerts` | Recent price alerts without clearing them or sending messages |
 | `budol_calculate` | A manual estimate; explicit shipping and eligible voucher terms; Coins remain separate |
 | `budol_save_product` | Save an exact product URL from the specified loaded tab |
@@ -88,3 +89,5 @@ Tests negotiate real SDK stdio sessions, share a broker across clients, reject b
 - [Official Codex MCP configuration](https://developers.openai.com/codex/mcp)
 - [Official MCP TypeScript SDK server guide](https://github.com/modelcontextprotocol/typescript-sdk/blob/v1.x/docs/server.md)
 - [Chrome optional permissions](https://developer.chrome.com/docs/extensions/reference/api/permissions)
+
+`budol_get_external_history` reads PriceTrack PH or AiPrice directly using `provider`, `url`, and optional `variant_id`. Enable the provider once from the board. No shopping tab or write/Discord opt-in is needed. Results retain source, listing/variant scope, timestamps, cache/stale status and PHP centavos. See [External history](EXTERNAL-HISTORY.md).

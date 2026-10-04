@@ -2,6 +2,8 @@
 
 Find discounted products on Shopee Philippines. Budol is a Chrome and Edge extension that highlights matching listings and puts the highest advertised discounts first in a local Deals page.
 
+Version **1.13.0** adds direct price-history lookups from PriceTrack PH and AiPrice, including Lazada PH listing history. No tracker extension is required. [Provider access, cache controls and limits](docs/EXTERNAL-HISTORY.md).
+
 Version **1.12.0** keeps public product snapshots and downloaded image files for later Discord sharing. Use **Send to Discord** on a saved product with Shopee closed. **Backups & storage → Saved images & share cache** shows usage and separate image/cache cleanup controls. [Details and limits](docs/OFFLINE-SHARING.md).
 
 Version **1.11.0** adds a local **Codex MCP** connector with nine tools for reading loaded deals/offers, saved observations and alerts, estimating costs, and optional saves/removal/Discord sharing. Run `npm ci` then `npm run mcp:setup -- --register` from the full repository. Reload Budol, open **Discord settings → Codex MCP**, and connect. See [MCP setup, tools and access controls](docs/MCP.md).
@@ -111,3 +113,7 @@ node scripts/check-saved-page.cjs "C:\path\to\saved-shopee-page.html" 50
 ```
 
 The [UI research](docs/UI-UX-RESEARCH.md) records earlier source-based design decisions. The [extension-only proposal](docs/EXTENSION-PROPOSAL.md) is a backlog of optional ideas, not the current implementation scope.
+
+## External price history
+
+Budol 1.13.0 can query PriceTrack PH (Shopee variants) and AiPrice (Shopee/Lazada listing history) directly, without installing their extensions. Open **External price history**, choose a provider, and paste a full product link. Each provider requires optional host access. Results are labelled by source and scope, cached locally, and kept separate from local watches. **Backups & storage** includes **Clear external history cache**. [Usage, API contracts and limitations](docs/EXTERNAL-HISTORY.md).
