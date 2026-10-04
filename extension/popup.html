@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="game-ui.css">
   <script src="common.js" defer></script>
+  <script src="history-providers.js" defer></script>
   <script src="popup.js" defer></script>
 </head>
 <body class="popup">
@@ -19,6 +20,7 @@
   <main>
     <a class="button-link external-history-link" href="board.html#external-history-panel" target="_blank">External prices ↗</a>
     <p class="help external-history-help">Shopee &amp; Lazada history. No shopping tab needed.</p>
+    <div class="hover-settings"><label for="hover-provider">Shopee hover prices</label><select id="hover-provider"><option value="pricetrack">PriceTrack PH</option><option value="aiprice">AiPrice</option></select><button id="enable-hover" type="button">Enable provider</button><p id="hover-status" role="status">Hover over a Shopee product for 3 seconds.</p></div>
     <section class="settings" aria-label="Highlight settings">
       <div class="toggle-row">
         <label for="enabled"><strong>Discount filter</strong><span id="enabled-description">Mark products meeting your discount</span></label>
