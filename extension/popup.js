@@ -7,6 +7,18 @@
   const focus = document.getElementById('focus');
   const error = document.getElementById('error');
   const saveStatus = document.getElementById('save-status');
+  const hoverProvider = document.getElementById('hover-provider'), hoverStatus = document.getElementById('hover-status');
+  chrome.storage.local.get('budolHistoryProvider').then(value => {
+    if (['pricetrack', 'aiprice'].includes(value.budolHistoryProvider)) hoverProvider.value = value.budolHistoryProvider;
+  }).catch(() => {});
+  document.getElementById('enable-hover').addEventListener('click', async () => {
+    const provider = hoverProvider.value;
+    try {
+      if (!await chrome.permissions.request({ origins: [BudolHistory.PROVIDERS[provider].origin] })) throw new Error('Provider access was not enabled.');
+      await chrome.storage.local.set({ budolHistoryProvider: provider });
+      hoverStatus.textContent = 'Enabled. Hover over a Shopee product for 3 seconds.';
+    } catch (error) { hoverStatus.textContent = error.message; }
+  });
   document.getElementById('open-board').addEventListener('click', async () => {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

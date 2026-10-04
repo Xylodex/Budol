@@ -1,6 +1,6 @@
 # Codex MCP integration
 
-Budol 1.14.0 exposes eleven tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
+Budol 1.15.0 exposes eleven tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
 
 ## Setup
 

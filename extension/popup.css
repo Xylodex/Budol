@@ -7,7 +7,11 @@ header p { font-size: 11px; margin: 3px 0 0; color: #52665c; }
 #open-board { margin-left: auto; flex-shrink: 0; min-height: 40px; padding: 8px; border: 1px solid #7b9184; border-radius: 8px; background: white; color: #076b56; font: 600 12px "Segoe UI", sans-serif; cursor: pointer; }
 main { padding: 16px 18px 0; }
 .external-history-link { display: block; text-align: center; }
-.external-history-help { margin: 8px 0 14px; }
+.hover-settings { margin: 8px 0; }
+.hover-settings summary { cursor: pointer; padding: 4px 0; }
+.hover-settings label { display: block; margin-bottom: 6px; }
+.hover-settings select { max-width: 100%; padding: 8px; }
+.hover-settings p { font-size: 11px; margin: 6px 0; }
 .settings { border: 1px solid #d9e2d9; border-radius: 8px; background: white; padding: 14px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 11px; margin-bottom: 11px; border-bottom: 1px solid #e5eae1; min-height: 44px; }
 .toggle-row label { cursor: pointer; }.toggle-row strong { display: block; font-size: 13px; font-weight: 650; }.toggle-row label span { display: block; font-size: 11px; margin-top: 3px; color: #52665c; }

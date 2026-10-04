@@ -41,6 +41,19 @@
   }
   async function handle(message, sender) {
     const page = (sender.url || '').split(/[?#]/)[0];
+    if (message.type === 'BUDOL_HISTORY_PREVIEW') {
+      if (!Number.isInteger(sender.tab?.id) || !/^https:\/\/(?:[a-z0-9-]+\.)*shopee\.ph\//i.test(sender.url || '')) throw new Error('Price previews are available on Shopee PH only.');
+      const item = BudolHistory.identity(message.url);
+      if (item.platform !== 'shopee') throw new Error('Use a Shopee PH item for this preview.');
+      const epoch = revision;
+      const settings = await chrome.storage.local.get(['budolHistoryProvider', STORE]);
+      const provider = Object.hasOwn(BudolHistory.PROVIDERS, settings.budolHistoryProvider) ? settings.budolHistoryProvider : 'pricetrack';
+      const rows = (Array.isArray(settings[STORE]) ? settings[STORE] : []).filter(row => row.data?.provider === provider && row.data.url === item.url).reverse();
+      const cached = rows.find(row => row.data.points?.length) || rows[0];
+      if (epoch !== revision) throw new Error('History cache was cleared. Hover again to retry.');
+      if (cached) return { ok: true, history: { ...cached.data, cached: true, stale: Date.now() - cached.at >= TTL } };
+      return { ok: true, history: await lookup({ provider, url: item.url }) };
+    }
     if (![chrome.runtime.getURL('board.html'), chrome.runtime.getURL('mcp.html')].includes(page)) throw new Error('Open Budol to request external history.');
     if (message.type === 'BUDOL_HISTORY_LOOKUP') return { ok: true, history: await lookup(message) };
     if (page !== chrome.runtime.getURL('board.html')) throw new Error('Open Budol storage controls to clear history cache.');
@@ -49,7 +62,7 @@
     return { ok: true };
   }
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
-    if (!['BUDOL_HISTORY_LOOKUP', 'BUDOL_HISTORY_CLEAR'].includes(message?.type)) return;
+    if (!['BUDOL_HISTORY_LOOKUP', 'BUDOL_HISTORY_CLEAR', 'BUDOL_HISTORY_PREVIEW'].includes(message?.type)) return;
     handle(message, sender).then(respond, error => respond({ ok: false, error: /Abort|Timeout/.test(error.name) ? 'History lookup timed out or was cancelled.' : error.message })); return true;
   });
 })();

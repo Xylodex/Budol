@@ -4,6 +4,10 @@ Budol 1.13.0 calls PriceTrack PH and AiPrice directly from its service worker. T
 
 ## Use
 
+On Shopee, open the Budol popup, choose **Shopee hover prices → PriceTrack PH or AiPrice**, and click **Enable provider** once. Refresh any Shopee tabs that were open before this update. Hover a product card or product link for **three seconds** to see an external price preview directly on Shopee. Moving away early cancels the request; Escape dismisses the preview. Keyboard focus also supports the delay. The tooltip is isolated from Shopee styles, handles newly loaded cards, and ignores late responses after you leave an item. It uses saved provider history first, with stale and variant labels, and requests missing history directly through Budol's service worker. No product-page navigation is required. Multi-variant PriceTrack items without a selected cached variant direct you to the full history view.
+
+The popup's Shopee provider selection is saved separately from the board's lookup form. Hovering cannot grant permissions or clear history. Only Shopee PH content-script callers can use the restricted preview message, which accepts a Shopee item URL and uses the stored provider; general lookup and cleanup messages remain limited to Budol pages.
+
 Open **External prices** from the extension popup or board navigation. No Shopee or Lazada tab is required. The popup shortcut opens the history section directly without scanning shopping tabs. The latest locally saved provider response is restored automatically; **Saved lookups** lets you switch between retained responses without network access, including old responses labelled stale.
 
 Choose a provider, paste a full product URL, and select **Look up history** to query it. **Price history** on a saved or discovered item fills the form. The first lookup requests optional browser access to that provider's API host. Denying access leaves the rest of Budol usable.
