@@ -44,7 +44,7 @@
     if (!Array.isArray(records)) throw malformed();
     const returned = data.order_info?.sls_tn;
     if (returned && returned !== number) throw failure('mismatch', 'The carrier returned a different tracking number. Open the official tracker.');
-    const events = records.slice(0, 500).map(row => ({ description: clean(row?.description), at: timestamp(row?.actual_time), date: '', location: '' }));
+    const events = records.map(row => ({ description: clean(row?.description), at: timestamp(row?.actual_time), date: '', location: '' }));
     // SPX supplies epoch seconds; newest scan first even if source order changes.
     events.sort((a, b) => (b.at || 0) - (a.at || 0));
     return snapshot(data.order_info?.tracking_code_subgroup_name, events);
@@ -82,7 +82,7 @@
     if ([401, 403].includes(response.status)) throw failure('verification', 'The carrier requires verification. Open the official tracker.');
     if (!response.ok) throw failure('network', 'The carrier is unavailable. Try again later or open its official tracker.');
     // Bound the streamed body before JSON parsing or looking for a public nonce.
-    if (Number(response.headers.get('Content-Length')) > 2000000) throw malformed();
+    if (Number(response.headers.get('Content-Length')) > 2000000) { await response.body?.cancel(); throw malformed(); }
     const reader = response.body?.getReader();
     if (!reader) throw malformed();
     const decoder = new TextDecoder(); let text = '', size = 0;

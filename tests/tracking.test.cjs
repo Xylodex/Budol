@@ -14,7 +14,8 @@ function harness(options = {}) {
   const state = structuredClone(options.state || {}), calls = [], listeners = [];
   let now = Date.now(), allowed = true;
   class Clock extends Date { static now() { return now; } }
-  const context = vm.createContext({ URL, URLSearchParams, AbortSignal, AbortController, TextDecoder, Date: Clock, crypto: webcrypto,
+  const signals = options.shortTimeout ? { any: AbortSignal.any.bind(AbortSignal), timeout: () => AbortSignal.timeout(20) } : AbortSignal;
+  const context = vm.createContext({ URL, URLSearchParams, AbortSignal: signals, AbortController, TextDecoder, Date: Clock, crypto: webcrypto,
     fetch: async (url, init) => { calls.push({ url, init }); return options.fetch ? options.fetch(url, init) : json(spx()); },
     chrome: {
       runtime: { getURL: file => `chrome-extension://budol/${file}`, onMessage: { addListener: fn => listeners.push(fn) } },
@@ -89,6 +90,24 @@ test('J&T only uses the official no-verification path after an explicit false ga
   assert.equal(h.state.budolParcels[0].snapshot.events[0].date, '2026-11-02 13:40:00');
 });
 
+test('an unknown J&T verification response never falls through to the tracking endpoint', async () => {
+  for (const gate of [{ code: 1, data: 'false' }, { code: 0, data: false }, {}, { code: 1 }]) {
+    const h = harness({ fetch: () => json(gate) }), id = await h.add('jt', '123456789012');
+    assert.equal((await h.send('REFRESH', { id })).refreshed, false); assert.equal(h.calls.length, 1);
+  }
+});
+
+test('a stalled carrier request times out and releases its in-flight slot', async () => {
+  const h = harness({ shortTimeout: true, fetch: (_url, { signal }) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(json(spx())), 500);
+    signal.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+  }) }), id = await h.add();
+  assert.equal((await h.send('REFRESH', { id })).refreshed, false);
+  assert.match(h.state.budolParcels[0].error.message, /timed out/);
+  h.advance(); assert.equal((await h.send('REFRESH', { id })).refreshed, false);
+  assert.equal(h.calls.length, 2);
+});
+
 test('LBC obtains a fresh nonce and validates the returned tracking identity', async () => {
   const number = '001234567890';
   const data = { success: true, data: { Body: { LBCTrackAndTraceResponse: { LBCTrackAndTraceResult: { TrackingStatus: {
@@ -148,6 +167,14 @@ test('parser bounds timelines and text without including private response fields
   data.data.sls_tracking_info.records = Array.from({ length: 600 }, (_, i) => ({ description: `${i} ${'x'.repeat(900)}`, actual_time: 1700000000 + i }));
   const parsed = h.api.parseSpx(data, NUMBER);
   assert.equal(parsed.events.length, 100); assert.ok(parsed.events.every(row => row.description.length <= 600));
+  assert.equal(parsed.events[0].at, 1700000599000);
   assert.throws(() => h.api.parseSpx(spx('WRONGNUMBER'), NUMBER), /different tracking/);
   assert.throws(() => h.api.parseSpx({ retcode: 2 }, NUMBER), /could not return/);
+});
+
+test('clear all recovers unreadable storage without resetting carrier rate limits', async () => {
+  const h = harness({ state: { budolParcels: { broken: true }, budolTrackingCooldowns: { spx: Date.now() + 60000 } } });
+  assert.equal((await h.send('LIST')).ok, false);
+  assert.equal((await h.send('CLEAR_ALL')).ok, true);
+  assert.deepEqual(h.state.budolParcels, []); assert.ok(h.state.budolTrackingCooldowns.spx);
 });

@@ -1,5 +1,34 @@
-body.integration-page main { display: block; max-width: 760px; }
+body.integration-page main { display: block; max-width: 960px; }
 .integration-page #settings-error { color: #a33021; }
 .integration-page .actions { gap: 12px; }
 .integration-page #mcp-error { color: #a33021; }
 .integration-page code { overflow-wrap: anywhere; }
+.parcel-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 12px 18px; }
+.parcel-fields label:last-child { grid-column: 1 / -1; }
+.parcel-fields input, .parcel-fields select { min-width: 0; width: 100%; }
+.parcel-fields label { min-width: 0; }
+#parcel-count { color: var(--muted); font: 13px/1.4 "Trebuchet MS", sans-serif; margin-left: auto; }
+.parcel-privacy { margin-top: 18px; }
+#parcel-panel p, #parcel-panel summary, #parcel-panel button, #parcel-panel .button-link { font-size: 14px; line-height: 1.5; }
+#parcel-error, .parcel-warning { color: #91331d; }
+#parcel-status:empty { display: none; }
+.parcel-empty { padding: 24px 16px; text-align: center; border: 1px dashed #7ca3bb; border-radius: 4px; }
+.parcel-card { margin-top: 16px; padding: 18px; border: 1px solid #a9c9dd; border-top: 3px solid #247cad; border-radius: 4px; background: #f4faff; overflow-wrap: anywhere; }
+.parcel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.parcel-heading h3 { margin: 0; font-size: 18px; }
+.parcel-mode { font-size: 12px; color: #275577; background: #d2eaf8; border: 1px solid #a9c9dd; padding: 2px 8px; border-radius: 3px; }
+.parcel-number { font-size: 13px; color: #486581; margin-top: 6px; }
+#parcel-panel .parcel-state { font-size: 16px; font-weight: 700; }
+.parcel-card .actions { flex-wrap: wrap; margin: 16px 0 0; }
+.parcel-card details { margin-top: 16px; padding-top: 12px; border-top: 1px solid #bfd7e7; }
+.parcel-card summary { cursor: pointer; font-weight: 700; }
+.parcel-timeline { list-style: none; padding: 0 0 0 12px; margin: 16px 0 0; }
+.parcel-timeline li { position: relative; border-left: 2px solid #a9c9dd; padding: 0 0 16px 18px; }
+.parcel-timeline li::before { content: ''; position: absolute; left: -5px; top: 6px; width: 8px; height: 8px; background: #247cad; transform: rotate(45deg); }
+.parcel-timeline p { margin: 0 0 6px; }
+.parcel-cleanup { margin-top: 20px; padding-top: 16px; border-top: 1px solid #abc8da; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .parcel-fields { grid-template-columns: minmax(0, 1fr); }
+  .parcel-card { padding: 14px; }
+  .parcel-card .actions > * { flex: 1 1 150px; text-align: center; justify-content: center; }
+}
