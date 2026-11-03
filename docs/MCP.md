@@ -1,6 +1,6 @@
 # Codex MCP integration
 
-Budol 1.15.1 exposes eleven tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
+Budol 1.16.0 exposes eleven tools through a local stdio MCP server. Codex starts the server; a small authenticated HTTP broker connects it to an opt-in Budol extension tab. No public server, API key, native-messaging registry entry or Shopee API is required.
 
 ## Setup
 
@@ -14,7 +14,7 @@ npm run mcp:setup -- --register
 Setup creates `%USERPROFILE%/.budol-mcp/config.json` (or `~/.budol-mcp/config.json`), fills the ignored `extension/mcp-local.json` file, and also updates the private pairing file in `dist` if that installation already exists. `--register` runs `codex mcp add budol` using absolute paths to this checkout and the current Node executable. It updates the named `budol` entry; other MCP servers are unchanged. Rerun setup after moving the repository or changing the Node path.
 
 1. Reload Budol on the browser's extensions page and refresh open Shopee tabs.
-2. Open **Discord settings → Codex MCP**, then **Connect**. Allow the requested local bridge and Shopee host access. The pairing fields are filled from your private setup file.
+2. Open **Settings & parcels → Codex MCP**, then **Connect**. Allow the requested local bridge and Shopee host access. The pairing fields are filled from your private setup file.
 3. Leave the connector tab open. It starts read-only. To permit mutations, disconnect, enable **Allow saving and removing products**, and reconnect. Discord additionally needs **Also allow explicit Discord sends** and an existing webhook in Discord settings.
 4. Restart MCP servers in Codex settings (or restart Codex) after registration. Ask Codex to check Budol status and list Shopee tabs.
 

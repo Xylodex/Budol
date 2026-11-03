@@ -1,6 +1,24 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Budol — Discord settings</title><link rel="stylesheet" href="board.css"><link rel="stylesheet" href="game-ui.css"><link rel="stylesheet" href="options.css"><script src="options.js" defer></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Budol — Settings &amp; parcels</title><link rel="stylesheet" href="board.css"><link rel="stylesheet" href="game-ui.css"><link rel="stylesheet" href="options.css"><script src="options.js" defer></script><script src="tracking.js" defer></script><script src="tracking-view.js" defer></script></head>
 <body class="integration-page"><header><div class="brand"><img src="icons/budol-crest.svg" width="40" height="40" alt=""><h1>Budol</h1></div><a class="button-link" href="board.html">Back to deals</a></header><main>
+<section class="panel" id="parcel-panel" aria-labelledby="parcel-heading">
+  <div class="section-heading"><h2 id="parcel-heading">Track parcels <span id="parcel-count"></span></h2></div>
+  <p>Save a tracking number, then refresh for the latest carrier scans.</p>
+  <form id="parcel-form">
+    <div class="parcel-fields">
+      <label for="parcel-carrier">Carrier<select id="parcel-carrier" aria-describedby="parcel-carrier-help"></select></label>
+      <label for="parcel-number">Tracking number<input id="parcel-number" required minlength="6" maxlength="40" autocomplete="off" spellcheck="false" placeholder="From your order’s shipping details"></label>
+      <label for="parcel-label">Label <span class="hint">(optional)</span><input id="parcel-label" maxlength="80" placeholder="e.g. Display cabinet"></label>
+    </div>
+    <p id="parcel-carrier-help" class="hint"></p>
+    <button class="primary" type="submit">Save parcel</button>
+  </form>
+  <p class="hint parcel-privacy">Numbers and cached scans stay in this browser. Refresh shares the number only with its carrier and asks for browser permission. Parcel data is separate from product backups.</p>
+  <p id="parcel-status" role="status" aria-live="polite"></p>
+  <p id="parcel-error" role="alert" hidden></p>
+  <div id="parcel-list" aria-label="Saved parcels"></div>
+  <div class="actions parcel-cleanup"><button id="parcel-clear-cache" type="button" disabled>Clear cached scans</button><button id="parcel-clear-all" type="button" disabled>Clear saved parcels</button></div>
+</section>
 <section class="panel"><h2>Send items to Discord</h2><p>Right-click a Shopee product, then choose <strong>Send item to Discord</strong>. Budol posts its link, photo and readable listing details.</p><p id="connection" role="status">Loading settings…</p>
 <form id="discord-settings"><label for="webhook">Discord webhook URL<input id="webhook" type="password" autocomplete="off" spellcheck="false" placeholder="https://discord.com/api/webhooks/…" required aria-describedby="webhook-help"></label><p id="webhook-help" class="hint">Stored in this browser. Not included in product backups. Saving does not send a message. For a forum channel, include ?thread_id=… in the URL.</p><div class="actions"><button class="primary" type="submit">Save webhook</button><button type="button" id="disconnect">Disconnect</button></div></form><p id="settings-error" role="alert" hidden></p>
 <p class="hint">Only the product you choose is shared. Notes, collections, saved history, account details and the webhook URL are not included in messages. Price, stock, shipping and offer terms can change.</p></section>
