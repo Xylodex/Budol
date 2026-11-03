@@ -2,6 +2,7 @@ importScripts('catalog.js');
 importScripts('discord.js', 'discord-background.js');
 importScripts('share-cache.js');
 importScripts('history-public-config.js', 'history-providers.js', 'history-background.js');
+importScripts('tracking.js', 'tracking-background.js');
 let pending = Promise.resolve();
 let deliveryPending = Promise.resolve();
 function serialize(task) {
